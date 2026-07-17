@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -21,6 +22,137 @@ class PaperExpertLLM(Protocol):
 
     def complete(self, messages: list[dict[str, str]]) -> str:
         """Return the assistant text for a chat-style prompt."""
+
+
+@dataclass
+class OfflineResearchLLM:
+    """Deterministic local fallback used when no cloud/local LLM credentials exist.
+
+    It emits the same structured formats the brainstorm parsers expect, so the
+    backend remains fully usable in hosted demos without leaking or requiring
+    API keys. Outputs are intentionally conservative and labeled by downstream
+    code as heuristic rather than benchmarked model results.
+    """
+
+    def complete(self, messages: list[dict[str, str]]) -> str:
+        prompt = "\n\n".join(message.get("content", "") for message in messages)
+        area = _extract_prompt_field(prompt, "Research area") or "the selected knowledge void"
+        paper = _extract_paper_title(prompt) or "the selected paper"
+        problem = _extract_prompt_field(prompt, "Problem") or area
+        iteration = _extract_prompt_field(prompt, "Iteration") or "1"
+
+        if "---ORCHESTRATION_DIAGNOSIS---" in prompt:
+            return (
+                "---ORCHESTRATION_DIAGNOSIS---\n"
+                "SUMMARY: The current editable model should be improved through a small, controlled architecture "
+                "and optimizer change while preserving the run command and metrics contract.\n"
+                "DATASET_CONTEXT:\n"
+                "- The backend evaluation command writes metrics to logs/latest_metrics.json.\n"
+                "- The editable surface is intentionally narrow, usually model.py.\n"
+                "ISSUES:\n"
+                "- Weak baselines often underfit because capacity, activation choice, or dropout is too conservative.\n"
+                "- Any code change must preserve build_model(), TRAINING_CONFIG, and tensor shapes expected by train.py.\n"
+                "SUGGESTIONS:\n"
+                "- Increase useful capacity without changing the dataset or evaluation command.\n"
+                "- Prefer ReLU/GELU, Adam/AdamW, moderate dropout, and valid output class dimensions.\n"
+                "---END---"
+            )
+
+        if "---MODEL_IDEA---" in prompt:
+            focus, change = _offline_paper_strategy(paper)
+            return (
+                "---MODEL_IDEA---\n"
+                f"TEXT: Use {paper} as the evidence lens for a {focus} candidate addressing {problem}.\n"
+                f"RATIONALE: The retrieved passage from {paper} supports testing {focus} under the fixed benchmark rather than making an ungrounded generic change.\n"
+                "EXPECTED_EFFECT: Improve the required test metric while preserving input, output, and metrics contracts.\n"
+                f"CHANGES: {change}\n"
+                "---END---"
+            )
+
+        if "---MODEL_CROSS_IDEA---" in prompt:
+            seed = _extract_prompt_field(prompt, "Seed idea from") or "the companion proposal"
+            return (
+                "---MODEL_CROSS_IDEA---\n"
+                f"TEXT: Cross-test {paper} against {seed} in one controlled candidate for {problem}.\n"
+                "CONNECTION: The first paper supplies a representation or optimization mechanism while the seed supplies the complementary constraint; the bridge is tested through ablation on one unchanged evaluation command.\n"
+                "CHANGES: Combine only the compatible mechanisms, preserve tensor shapes and public APIs, and isolate the contribution with the judge's before/after metric.\n"
+                "---END---"
+            )
+
+        if "Numeric decision:" in prompt and "Previous metrics:" in prompt and "New metrics:" in prompt:
+            return (
+                "The numeric judge should keep the change if the required metric improved and the evaluation "
+                "produced a valid metrics file. The next round should preserve the shape-safe architecture cleanup, "
+                "then tune capacity and regularization rather than reverting to the weak baseline."
+            )
+
+        if "---FILE:" in prompt and "model.py" in prompt:
+            return _offline_model_replacement(prompt)
+
+        if "---RESEARCH_PLAN---" in prompt:
+            return (
+                "---RESEARCH_PLAN---\n"
+                f"SUMMARY: Iteration {iteration} implements the highest-confidence evidence-backed mechanism selected by the search and paper-analysis agents, while preserving the benchmark contract.\n"
+                "TARGET_FILES:\n"
+                "- model.py\n"
+                "STEPS:\n"
+                "- Preserve build_model(), MODEL_CONFIG, and TRAINING_CONFIG names.\n"
+                "- Apply the selected representation and optimization changes as a shape-safe candidate.\n"
+                "- Keep output class count compatible with the dataset and retain deterministic evaluation.\n"
+                "EXPECTED_EFFECT: The next evaluation should produce a higher test_accuracy than the baseline.\n"
+                "VALIDATION: Keep only if the judge sees a valid metrics file and non-regressed test_accuracy.\n"
+                "---END---"
+            )
+
+        if "---CROSSPOLLINATE---" in prompt:
+            seed_title = _extract_seed_title(prompt) or "the companion paper"
+            return (
+                "---CROSSPOLLINATE---\n"
+                f"TEXT: Combine {paper} with {seed_title} through a shared evaluation protocol for {area}.\n"
+                "CONNECTION: Use the first paper as the primary signal source and the second as the stress-test "
+                "or transfer setting, then compare utility, robustness, and privacy leakage under the same metrics.\n"
+                "---END---"
+            )
+
+        if "---IDEA---" in prompt:
+            return (
+                "---IDEA---\n"
+                f"TEXT: Prototype a grounded {area} experiment using {paper} as the baseline method.\n"
+                "GROUNDING: The paper supplies the core representation, model family, or evaluation signal for a "
+                "minimal reproducible study.\n"
+                "GAP: Test whether the same signal remains useful under a stricter cross-domain, robustness, or "
+                "privacy-preserving constraint.\n"
+                "---END---"
+            )
+
+        return (
+            f"## Research Agenda: {area}\n\n"
+            "### Conservative benchmark bridge\n"
+            "**Core idea**: Turn the selected paper cluster into a shared benchmark with comparable inputs, metrics, "
+            "and ablations.\n"
+            "**Papers it draws from**: The selected source papers.\n"
+            "**Why this is promising**: It separates genuine signal transfer from coincidental topical overlap.\n"
+            "**First step**: Implement a small baseline and report utility, robustness, and failure cases.\n\n"
+            "### Cross-paper stress test\n"
+            "**Core idea**: Pair each proposed method with another paper's evaluation setting.\n"
+            "**Papers it draws from**: Seed and cross-pollinated ideas.\n"
+            "**Why this is promising**: Strong ideas should survive transfer beyond their original experimental setup.\n"
+            "**First step**: Run one transfer experiment and compare against the original baseline.\n\n"
+            "### Open Questions\n"
+            "- Which signal transfers across papers without overfitting?\n"
+            "- Which ablation best explains the predicted gain?"
+        )
+
+    def complete_stream(
+        self,
+        messages: list[dict[str, str]],
+        on_token: Callable[[str], None],
+    ) -> str:
+        text = self.complete(messages)
+        for token in _stream_chunks(text):
+            on_token(token)
+            time.sleep(0.01)
+        return text
 
 
 @dataclass
@@ -303,14 +435,17 @@ def build_llm(
 ) -> PaperExpertLLM:
     """Construct the LLM client for the configured backend (env ``LLM_BACKEND``).
 
+    - ``offline``    → deterministic local fallback (default for hosted demos)
     - ``anthropic``  → Claude via the official Anthropic SDK (needs ANTHROPIC_API_KEY)
-    - ``openrouter`` → OpenRouter cloud inference (default)
+    - ``openrouter`` → OpenRouter cloud inference
     - ``gx10``       → local OpenAI-compatible server
 
     ``temperature`` is accepted for call-site compatibility but ignored on the
     Anthropic path (unsupported on Claude Opus 4.8).
     """
-    backend = os.environ.get("LLM_BACKEND", "openrouter").lower()
+    backend = os.environ.get("LLM_BACKEND", "offline").lower()
+    if backend in {"offline", "deterministic", "none", "mock"}:
+        return OfflineResearchLLM()
     if backend == "anthropic":
         # OpenRouter model ids (e.g. "nvidia/...") mean nothing to Anthropic —
         # only honor an explicit claude-* override, else use the default.
@@ -322,6 +457,207 @@ def build_llm(
         temperature=temperature,
         **kwargs,
     )
+
+
+def _extract_prompt_field(prompt: str, field: str) -> str:
+    match = re.search(rf"^{re.escape(field)}:\s*(.+)$", prompt, flags=re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def _extract_paper_title(prompt: str) -> str:
+    patterns = [
+        r"expert for '([^']+)'",
+        r"paper '([^']+)'",
+        r"YOUR paper \('([^']+)'\)",
+        r"Evidence from YOUR paper \('([^']+)'\)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, prompt)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _extract_seed_title(prompt: str) -> str:
+    match = re.search(r"Another expert \(for '([^']+)'\)", prompt)
+    return match.group(1).strip() if match else ""
+
+
+def _offline_paper_strategy(title: str) -> tuple[str, str]:
+    lowered = title.lower()
+    if "self-supervised" in lowered or "contrastive" in lowered:
+        return (
+            "normalization-stable contrastive representation",
+            "Add shape-safe normalization and a stronger feature projection, reduce destructive dropout, and use AdamW so the supervised proxy can test whether the representation transfers.",
+        )
+    if "ordinary differential" in lowered or "neural ode" in lowered or "node" in lowered:
+        return (
+            "stable residual feature-evolution",
+            "Use residual feature blocks with conservative step-like updates, normalization, and gradient-stable activations while preserving the classifier head.",
+        )
+    if "transformer" in lowered or "attention" in lowered:
+        return (
+            "local-to-global feature mixing",
+            "Strengthen the convolutional stem and add efficient channel/context mixing with GELU and normalization without changing the fixed image or class dimensions.",
+        )
+    if "gan" in lowered or "generative" in lowered:
+        return (
+            "robust feature discrimination",
+            "Increase discriminator-like feature capacity, use moderate regularization, and avoid unstable generative objectives in the fixed classification benchmark.",
+        )
+    if "point cloud" in lowered or "registration" in lowered or "medical" in lowered:
+        return (
+            "multi-scale geometry-aware representation",
+            "Use a multi-scale convolutional hierarchy with normalization and residual feature preservation so local and global structure remain available to the classifier.",
+        )
+    return (
+        "paper-grounded robust representation",
+        "Increase useful capacity with normalization and modern activations, retain the fixed public API, and validate the change with the unchanged metric command.",
+    )
+
+
+def _stream_chunks(text: str) -> list[str]:
+    words = text.split(" ")
+    return [word + (" " if i < len(words) - 1 else "") for i, word in enumerate(words)]
+
+
+def _offline_model_replacement(prompt: str) -> str:
+    if "Tiny-ImageNet" in prompt or "64x64 RGB" in prompt or "num_classes\": 200" in prompt:
+        body = '''from __future__ import annotations
+
+import torch
+from torch import nn
+
+
+MODEL_CONFIG = {
+    "channels": [24, 48, 96],
+    "dropout": 0.15,
+    "activation": "gelu",
+    "use_batchnorm": True,
+    "num_classes": 200,
+}
+
+TRAINING_CONFIG = {
+    "epochs": 3,
+    "batch_size": 32,
+    "learning_rate": 8e-4,
+    "optimizer": "adamw",
+    "weight_decay": 1e-4,
+    "momentum": 0.0,
+    "seed": 42,
+    "limit_train": 1200,
+    "limit_test": 300,
+    "image_size": 64,
+    "lr_scheduler": "cosine_decay",
+}
+
+OPTIMIZER_CONFIG = {
+    "optimizer": "adamw",
+    "beta_1": 0.9,
+    "beta_2": 0.98,
+}
+
+
+class BaselineCNNImageNet(nn.Module):
+    def __init__(self, config: dict | None = None) -> None:
+        super().__init__()
+        config = dict(MODEL_CONFIG if config is None else config)
+        channels = list(config.get("channels", [24, 48, 96]))
+        dropout = float(config.get("dropout", 0.15))
+        use_batchnorm = bool(config.get("use_batchnorm", True))
+        num_classes = int(config.get("num_classes", 200))
+
+        layers: list[nn.Module] = []
+        in_channels = 3
+        for out_channels in channels:
+            out_channels = int(out_channels)
+            layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=not use_batchnorm))
+            if use_batchnorm:
+                layers.append(nn.BatchNorm2d(out_channels))
+            layers.append(nn.GELU())
+            layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=not use_batchnorm))
+            if use_batchnorm:
+                layers.append(nn.BatchNorm2d(out_channels))
+            layers.append(nn.GELU())
+            layers.append(nn.MaxPool2d(2, 2))
+            layers.append(nn.Dropout2d(dropout))
+            in_channels = out_channels
+
+        self.features = nn.Sequential(*layers)
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_channels, 256),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        x = self.features(images)
+        x = self.pool(x)
+        return self.classifier(x)
+
+
+def build_model() -> nn.Module:
+    return BaselineCNNImageNet()
+'''
+    else:
+        body = '''"""Improved MNIST fully connected model for the research swarm."""
+
+from __future__ import annotations
+
+import torch
+from torch import nn
+
+
+MODEL_CONFIG = {
+    "hidden_sizes": [256, 128],
+    "dropout": 0.15,
+    "activation": "gelu",
+}
+
+TRAINING_CONFIG = {
+    "epochs": 3,
+    "batch_size": 128,
+    "learning_rate": 1e-3,
+    "optimizer": "adamw",
+    "weight_decay": 1e-4,
+    "seed": 7,
+    "limit_train": 6000,
+    "limit_test": 1000,
+}
+
+
+class BaselineFullyConnectedMNIST(nn.Module):
+    """A compact but capable MLP that preserves the train.py contract."""
+
+    def __init__(self, config: dict | None = None) -> None:
+        super().__init__()
+        config = dict(MODEL_CONFIG if config is None else config)
+        hidden_sizes = list(config.get("hidden_sizes", [256, 128]))
+        dropout = float(config.get("dropout", 0.15))
+
+        layers: list[nn.Module] = [nn.Flatten()]
+        in_features = 28 * 28
+        for hidden_size in hidden_sizes:
+            hidden_size = int(hidden_size)
+            layers.append(nn.Linear(in_features, hidden_size))
+            layers.append(nn.LayerNorm(hidden_size))
+            layers.append(nn.GELU())
+            layers.append(nn.Dropout(dropout))
+            in_features = hidden_size
+        layers.append(nn.Linear(in_features, 10))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        return self.net(images)
+
+
+def build_model() -> nn.Module:
+    return BaselineFullyConnectedMNIST()
+'''
+    return f"---FILE: model.py---\n```python\n{body.rstrip()}\n```\n---END FILE---"
 
 
 def _should_fallback_to_non_streaming(exc: RuntimeError) -> bool:

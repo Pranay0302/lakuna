@@ -14,6 +14,7 @@ from typing import Any, Sequence
 
 from .blackboard import Evidence
 from .llm import OPENROUTER_MODEL, PaperExpertLLM
+from .zero_exa import ZeroExaSearch, ZeroServiceError
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,7 @@ class ResearchSession:
     iterations: list[ResearchIteration]
     best_result: ExperimentResult
     metric_name: str
+    outcome: str
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -236,6 +238,10 @@ class ExperimentRunner:
 
         self.event_log.event(
             "experiment_start",
+            {"iteration": iteration, "label": label, "command": self.command, "agent_id": "execution-agent"},
+        )
+        self.event_log.event(
+            "execution_agent_start",
             {"iteration": iteration, "label": label, "command": self.command},
         )
         start = time.monotonic()
@@ -263,6 +269,16 @@ class ExperimentRunner:
             metrics_path=str(metrics_abs) if metrics_abs else None,
         )
         self.event_log.event("experiment_done", asdict(result))
+        self.event_log.event(
+            "execution_agent_done",
+            {
+                "iteration": iteration,
+                "label": label,
+                "returncode": result.returncode,
+                "metrics": result.metrics,
+                "succeeded": result.succeeded,
+            },
+        )
         return result
 
 
@@ -401,6 +417,10 @@ class ResearchCodingAgent:
         current_result: ExperimentResult,
         problem_statement: str,
     ) -> CodingResult:
+        event_log.event(
+            "coding_agent_start",
+            {"iteration": iteration, "target_files": list(plan.target_files)},
+        )
         file_context = _format_editable_files(problem_dir, self.editable_files, self.max_file_chars)
         editable_list = ", ".join(self.editable_files)
         example_path = self.editable_files[0]
@@ -432,6 +452,7 @@ class ResearchCodingAgent:
                 "content": "\n\n".join(
                     [
                         f"Problem: {problem_statement}",
+                        f"Iteration: {iteration}",
                         f"Current metrics: {_format_metrics(current_result.metrics)}",
                         "Planning agent output:",
                         plan.raw,
@@ -510,6 +531,15 @@ class ResearchDebuggingAgent:
         problem_statement: str,
         metric_name: str,
     ) -> DebuggingResult:
+        event_log.event(
+            "debugging_agent_start",
+            {
+                "iteration": iteration,
+                "attempt": attempt,
+                "returncode": failed_result.returncode,
+                "metrics": failed_result.metrics,
+            },
+        )
         editable_list = ", ".join(self.editable_files)
         example_path = self.editable_files[0]
         messages = [
@@ -629,6 +659,7 @@ class ResearchSwarmOrchestrator:
         min_delta: float = 0.001,
         revert_on_regression: bool = True,
         session_dir: Path | None = None,
+        zero_exa: ZeroExaSearch | None = None,
         logger=None,
     ) -> None:
         if not agents:
@@ -650,6 +681,7 @@ class ResearchSwarmOrchestrator:
         self.problem_statement = problem_statement
         self.logger = logger
         self.session_dir = session_dir or self._new_session_dir(problem_dir)
+        self.zero_exa = zero_exa
         self.event_log = ResearchEventLog(self.session_dir, logger=logger)
         self.runner = ExperimentRunner(
             problem_dir=problem_dir,
@@ -703,6 +735,51 @@ class ResearchSwarmOrchestrator:
         baseline = self.runner.run(iteration=0, label="baseline")
         if log:
             log.phase_done(f"Baseline metrics: {_format_metrics(baseline.metrics)}")
+
+        baseline_value = baseline.metric_value(self.metric_name)
+        if not baseline.succeeded or baseline_value is None:
+            outcome = "failed_baseline"
+            self.event_log.event(
+                "baseline_failed",
+                {
+                    "returncode": baseline.returncode,
+                    "metric_name": self.metric_name,
+                    "metrics": baseline.metrics,
+                    "stdout_path": baseline.stdout_path,
+                    "stderr_path": baseline.stderr_path,
+                    "reason": (
+                        "baseline command failed"
+                        if not baseline.succeeded
+                        else f"baseline did not produce required metric {self.metric_name}"
+                    ),
+                },
+            )
+            session = ResearchSession(
+                problem_dir=str(self.problem_dir),
+                session_dir=str(self.session_dir),
+                baseline=baseline,
+                iterations=[],
+                best_result=baseline,
+                metric_name=self.metric_name,
+                outcome=outcome,
+            )
+            summary_path = self.session_dir / "summary.json"
+            summary_path.write_text(
+                json.dumps(_json_safe(session), indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+            self.event_log.event(
+                "session_done",
+                {
+                    "summary_path": str(summary_path),
+                    "outcome": outcome,
+                    "baseline_value": baseline_value,
+                    "best_value": baseline_value,
+                },
+            )
+            if log:
+                log.phase_done("Research stopped because the baseline environment is not runnable")
+            return session
 
         best_result = baseline
         current_result = baseline
@@ -811,6 +888,7 @@ class ResearchSwarmOrchestrator:
                 )
                 research_iteration.judge = judge
                 feedback_history.append(judge)
+                self._record_resolution(iteration, judge, "ask coding agent to produce a valid editable replacement")
                 continue
 
             result = self.runner.run(iteration=iteration, label="judge")
@@ -867,10 +945,17 @@ class ResearchSwarmOrchestrator:
                     "files_restored",
                     {"iteration": iteration, "reason": judge.feedback},
                 )
+                self._record_resolution(iteration, judge, "restore the last validated files and continue with judge feedback")
             else:
                 current_result = result
                 if self._is_better(result, best_result):
                     best_result = result
+                action = (
+                    "accept the validated improvement as the new incumbent"
+                    if judge.decision == "keep"
+                    else "retain the valid candidate and continue tuning in the next iteration"
+                )
+                self._record_resolution(iteration, judge, action)
 
             if log:
                 log.phase_done(
@@ -878,6 +963,7 @@ class ResearchSwarmOrchestrator:
                     f"{self.metric_name}={judge.new_value}"
                 )
 
+        outcome = self._session_outcome(baseline, best_result)
         session = ResearchSession(
             problem_dir=str(self.problem_dir),
             session_dir=str(self.session_dir),
@@ -885,10 +971,19 @@ class ResearchSwarmOrchestrator:
             iterations=iterations,
             best_result=best_result,
             metric_name=self.metric_name,
+            outcome=outcome,
         )
         summary_path = self.session_dir / "summary.json"
         summary_path.write_text(json.dumps(_json_safe(session), indent=2, sort_keys=True), encoding="utf-8")
-        self.event_log.event("session_done", {"summary_path": str(summary_path)})
+        self.event_log.event(
+            "session_done",
+            {
+                "summary_path": str(summary_path),
+                "outcome": outcome,
+                "baseline_value": baseline.metric_value(self.metric_name),
+                "best_value": best_result.metric_value(self.metric_name),
+            },
+        )
         return session
 
     @staticmethod
@@ -915,11 +1010,48 @@ class ResearchSwarmOrchestrator:
         diagnosis: OrchestrationDiagnosis | None,
     ) -> list[ModelImprovementIdea]:
         ideas: list[ModelImprovementIdea] = []
+        query = self._context_query(current_result, diagnosis)
+        external_evidence = self._search_zero_exa(iteration=iteration, query=query)
         for agent in agents:
-            evidence = agent.retriever.search_evidence(
-                self._context_query(current_result, diagnosis),
+            search_agent_id = f"search:{agent.paper.paper_id}"
+            self.event_log.event(
+                "search_agent_start",
+                {
+                    "iteration": iteration,
+                    "agent_id": search_agent_id,
+                    "paper_id": agent.paper.paper_id,
+                    "paper_title": agent.paper.title,
+                    "query": query,
+                },
+            )
+            paper_evidence = agent.retriever.search_evidence(
+                query,
                 top_k=getattr(agent, "top_k", 4),
                 paper_id=agent.paper.paper_id,
+            )
+            evidence = [*paper_evidence, *external_evidence]
+            self.event_log.event(
+                "search_agent_done",
+                {
+                    "iteration": iteration,
+                    "agent_id": search_agent_id,
+                    "paper_id": agent.paper.paper_id,
+                    "paper_title": agent.paper.title,
+                    "evidence_count": len(paper_evidence),
+                    "evidence": [
+                        {"section": item.section, "text": _shorten(item.text, 280)}
+                        for item in paper_evidence
+                    ],
+                },
+            )
+            self.event_log.event(
+                "analysis_agent_start",
+                {
+                    "iteration": iteration,
+                    "agent_id": agent.agent_id,
+                    "paper_id": agent.paper.paper_id,
+                    "paper_title": agent.paper.title,
+                },
             )
             messages = [
                 {
@@ -939,6 +1071,7 @@ class ResearchSwarmOrchestrator:
                     "content": "\n\n".join(
                         [
                             f"Problem: {self.problem_statement}",
+                            f"Iteration: {iteration}",
                             f"Current metrics: {_format_metrics(current_result.metrics)}",
                             "Recent judge feedback:",
                             _format_feedback(feedback_history),
@@ -946,7 +1079,7 @@ class ResearchSwarmOrchestrator:
                             _format_diagnosis(diagnosis),
                             "Current editable source:",
                             _format_editable_files(self.problem_dir, self.editable_files, 6000),
-                            "Evidence from your paper:",
+                            "Evidence from your paper plus optional Zero/Exa live search:",
                             _format_evidence(evidence),
                             (
                                 "Propose exactly 1-2 concrete, high-impact modifications. "
@@ -965,10 +1098,70 @@ class ResearchSwarmOrchestrator:
             ]
             raw = _complete(agent.llm, messages, self.logger, agent.agent_id, "research proposal")
             self.event_log.artifact(f"iteration_{iteration:02d}/seed_{agent.paper.paper_id}.txt", raw)
-            ideas.extend(self._parse_seed_ideas(raw, agent, evidence))
+            parsed = self._parse_seed_ideas(raw, agent, evidence)
+            ideas.extend(parsed)
+            self.event_log.event(
+                "analysis_agent_done",
+                {
+                    "iteration": iteration,
+                    "agent_id": agent.agent_id,
+                    "paper_id": agent.paper.paper_id,
+                    "paper_title": agent.paper.title,
+                    "ideas": parsed,
+                },
+            )
 
         self.event_log.event("seed_ideas_done", {"iteration": iteration, "ideas": ideas})
         return ideas
+
+    def _search_zero_exa(self, *, iteration: int, query: str) -> list[Evidence]:
+        if self.zero_exa is None:
+            return []
+        self.event_log.event(
+            "zero_exa_search_start",
+            {"iteration": iteration, "agent_id": "zero:exa-search", "query": query},
+        )
+        try:
+            hits = self.zero_exa.search(query)
+        except ZeroServiceError as exc:
+            self.event_log.event(
+                "zero_exa_search_failed",
+                {
+                    "iteration": iteration,
+                    "agent_id": "zero:exa-search",
+                    "error": str(exc),
+                    "fallback": "local paper evidence",
+                },
+            )
+            if self.logger:
+                self.logger.info(f"Zero Exa search unavailable; using local evidence: {exc}")
+            return []
+
+        evidence = [
+            Evidence(
+                paper_id="zero:exa",
+                paper_title=hit.title,
+                chunk_id=f"zero:exa:{iteration}:{index}",
+                section="Live external research evidence",
+                sec_num=None,
+                text=(f"Source URL: {hit.url}\n{hit.text}" if hit.url else hit.text),
+                score=hit.score,
+            )
+            for index, hit in enumerate(hits, start=1)
+        ]
+        self.event_log.event(
+            "zero_exa_search_done",
+            {
+                "iteration": iteration,
+                "agent_id": "zero:exa-search",
+                "evidence_count": len(evidence),
+                "results": [
+                    {"title": item.paper_title, "url": item.text.splitlines()[0].removeprefix("Source URL: ")}
+                    for item in evidence
+                ],
+            },
+        )
+        return evidence
 
     def _cross_pollinate_ideas(
         self,
@@ -1015,6 +1208,7 @@ class ResearchSwarmOrchestrator:
                         "content": "\n\n".join(
                             [
                                 f"Problem: {self.problem_statement}",
+                                f"Iteration: {iteration}",
                                 f"Current metrics: {_format_metrics(current_result.metrics)}",
                                 "Recent judge feedback:",
                                 _format_feedback(feedback_history),
@@ -1058,6 +1252,14 @@ class ResearchSwarmOrchestrator:
         feedback_history: list[JudgeFeedback],
         diagnosis: OrchestrationDiagnosis | None,
     ) -> ResearchPlan:
+        self.event_log.event(
+            "planning_agent_start",
+            {
+                "iteration": iteration,
+                "seed_ideas": len(seed_ideas),
+                "cross_ideas": len(cross_ideas),
+            },
+        )
         messages = [
             {
                 "role": "system",
@@ -1075,6 +1277,7 @@ class ResearchSwarmOrchestrator:
                 "content": "\n\n".join(
                     [
                         f"Problem: {self.problem_statement}",
+                        f"Iteration: {iteration}",
                         f"Current metrics: {_format_metrics(current_result.metrics)}",
                         f"Metric to improve: {self.metric_name}",
                         f"Editable files: {', '.join(self.editable_files)}",
@@ -1119,6 +1322,10 @@ class ResearchSwarmOrchestrator:
         coding: CodingResult,
         label: str = "judge",
     ) -> JudgeFeedback:
+        self.event_log.event(
+            "judge_agent_start",
+            {"iteration": iteration, "label": label, "metric_name": self.metric_name},
+        )
         previous_value = previous.metric_value(self.metric_name)
         new_value = current.metric_value(self.metric_name)
         delta = (
@@ -1336,6 +1543,30 @@ class ResearchSwarmOrchestrator:
 
     def _needs_debugging(self, result: ExperimentResult) -> bool:
         return (not result.succeeded) or result.metric_value(self.metric_name) is None
+
+    def _record_resolution(self, iteration: int, judge: JudgeFeedback, action: str) -> None:
+        self.event_log.event(
+            "resolution_agent_done",
+            {
+                "iteration": iteration,
+                "decision": judge.decision,
+                "metric_name": judge.metric_name,
+                "previous_value": judge.previous_value,
+                "new_value": judge.new_value,
+                "action": action,
+            },
+        )
+
+    def _session_outcome(self, baseline: ExperimentResult, best: ExperimentResult) -> str:
+        baseline_value = baseline.metric_value(self.metric_name)
+        best_value = best.metric_value(self.metric_name)
+        if not baseline.succeeded or baseline_value is None:
+            return "failed_baseline"
+        if best_value is None:
+            return "failed_evaluation"
+        if best_value >= baseline_value + self.min_delta:
+            return "improved"
+        return "no_validated_improvement"
 
 
 def _complete(

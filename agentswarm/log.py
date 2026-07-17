@@ -42,7 +42,7 @@ class SwarmLogger:
             path = Path(log_file)
             path.parent.mkdir(parents=True, exist_ok=True)
             file_logger = logging.getLogger(f"agentswarm.{path.stem}")
-            file_logger.setLevel(logging.DEBUG)
+            file_logger.setLevel(logging.INFO)
             file_logger.propagate = False
             handler = logging.FileHandler(path, encoding="utf-8")
             handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(message)s"))
@@ -92,7 +92,6 @@ class SwarmLogger:
     def on_token(self, token: str) -> None:
         """Write a single streaming token to the output stream."""
         self._write(token)
-        self._log_debug("TOKEN %r", token)
 
     def agent_done(self, agent_id: str) -> None:
         """Finish the agent's output line and log timing."""

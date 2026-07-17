@@ -1,0 +1,58 @@
+[
+  {
+    "title": "GIMO: Gaze-Informed Human Motion Prediction in Context",
+    "doi": "2204.09443",
+    "year": 2022,
+    "citation_count": 2,
+    "abstract": "Predicting human motion is critical for assistive robots and AR/VR applications, where the interaction with humans needs to be safe and comfortable. Meanwhile, an accurate prediction depends on understanding both the scene context and human intentions. Even though many works study scene-aware human motion prediction, the latter is largely underexplored due to the lack of ego-centric views that disclose human intent and the limited diversity in motion and scenes. To reduce the gap, we propose a large-scale human motion dataset that delivers high-quality body pose sequences, scene scans, as well as ego-centric views with the eye gaze that serves as a surrogate for inferring human intent. By employing inertial sensors for motion capture, our data collection is not tied to specific scenes, which further boosts the motion dynamics observed from our subjects. We perform an extensive study of the benefits of leveraging the eye gaze for ego-centric human motion prediction with various state-of-the-art architectures. Moreover, to realize the full potential of the gaze, we propose a novel network architecture that enables bidirectional communication between the gaze and motion branches. Our network achieves the top performance in human motion prediction on the proposed dataset, thanks to the intent information from eye gaze and the denoised gaze feature modulated by the motion. Code and data can be found at https://github.com/y-zheng18/GIMO."
+  },
+  {
+    "title": "Naturalizing Neuromorphic Vision Event Streams Using GANs",
+    "doi": "2102.07243",
+    "year": 2021,
+    "citation_count": 1,
+    "abstract": "Dynamic vision sensors are able to operate at high temporal resolutions within resource constrained environments, though at the expense of capturing static content. The sparse nature of event streams enables efficient downstream processing tasks as they are suited for power-efficient spiking neural networks. One of the challenges associated with neuromorphic vision is the lack of interpretability of event streams. While most application use-cases do not intend for the event stream to be visually interpreted by anything other than a classification network, there is a lost opportunity to integrating these sensors in spaces that conventional high-speed CMOS sensors cannot go. For example, biologically invasive sensors such as endoscopes must fit within stringent power budgets, which do not allow MHz-speeds of image integration. While dynamic vision sensing can fill this void, the interpretation challenge remains and will degrade confidence in clinical diagnostics. The use of generative adversarial networks presents a possible solution to overcoming and compensating for a vision chip's poor spatial resolution and lack of interpretability. In this paper, we methodically apply the Pix2Pix network to naturalize the event stream from spike-converted CIFAR-10 and Linnaeus 5 datasets. The quality of the network is benchmarked by performing image classification of naturalized event streams, which converges to within 2.81% of equivalent raw images, and an associated improvement over unprocessed event streams by 13.19% for the CIFAR-10 and Linnaeus 5 datasets."
+  },
+  {
+    "title": "Gaze-Vergence-Controlled See-Through Vision in Augmented Reality",
+    "doi": "2207.02645",
+    "year": 2022,
+    "citation_count": 0,
+    "abstract": "Augmented Reality (AR) see-through vision is an interesting research topic since it enables users to see through a wall and see the occluded objects. Most existing research focuses on the visual effects of see-through vision, while the interaction method is less studied. However, we argue that using common interaction modalities, e.g., midair click and speech, may not be the optimal way to control see-through vision. This is because when we want to see through something, it is physically related to our gaze depth/vergence and thus should be naturally controlled by the eyes. Following this idea, this paper proposes a novel gaze-vergence-controlled (GVC) see-through vision technique in AR. Since gaze depth is needed, we build a gaze tracking module with two infrared cameras and the corresponding algorithm and assemble it into the Microsoft HoloLens 2 to achieve gaze depth estimation. We then propose two different GVC modes for see-through vision to fit different scenarios. Extensive experimental results demonstrate that our gaze depth estimation is efficient and accurate. By comparing with conventional interaction modalities, our GVC techniques are also shown to be superior in terms of efficiency and more preferred by users. Finally, we present four example applications of gaze-vergence-controlled see-through vision."
+  },
+  {
+    "title": "Indoor Future Person Localization from an Egocentric Wearable Camera",
+    "doi": "2103.04019",
+    "year": 2021,
+    "citation_count": 1,
+    "abstract": "Accurate prediction of future person location and movement trajectory from an egocentric wearable camera can benefit a wide range of applications, such as assisting visually impaired people in navigation, and the development of mobility assistance for people with disability. In this work, a new egocentric dataset was constructed using a wearable camera, with 8,250 short clips of a targeted person either walking 1) toward, 2) away, or 3) across the camera wearer in indoor environments, or 4) staying still in the scene, and 13,817 person bounding boxes were manually labelled. Apart from the bounding boxes, the dataset also contains the estimated pose of the targeted person as well as the IMU signal of the wearable camera at each time point. An LSTM-based encoder-decoder framework was designed to predict the future location and movement trajectory of the targeted person in this egocentric setting. Extensive experiments have been conducted on the new dataset, and have shown that the proposed method is able to reliably and better predict future person location and trajectory in egocentric videos captured by the wearable camera compared to three baselines."
+  },
+  {
+    "title": "FLAME: Free-form Language-based Motion Synthesis & Editing",
+    "doi": "2209.00349",
+    "year": 2022,
+    "citation_count": 4,
+    "abstract": "Text-based motion generation models are drawing a surge of interest for their potential for automating the motion-making process in the game, animation, or robot industries. In this paper, we propose a diffusion-based motion synthesis and editing model named FLAME. Inspired by the recent successes in diffusion models, we integrate diffusion-based generative models into the motion domain. FLAME can generate high-fidelity motions well aligned with the given text. Also, it can edit the parts of the motion, both frame-wise and joint-wise, without any fine-tuning. FLAME involves a new transformer-based architecture we devise to better handle motion data, which is found to be crucial to manage variable-length motions and well attend to free-form text. In experiments, we show that FLAME achieves state-of-the-art generation performances on three text-motion datasets: HumanML3D, BABEL, and KIT. We also demonstrate that editing capability of FLAME can be extended to other tasks such as motion prediction or motion in-betweening, which have been previously covered by dedicated models."
+  },
+  {
+    "title": "Deep learning-based stereo camera multi-video synchronization",
+    "doi": "2303.12916",
+    "year": 2023,
+    "citation_count": 1,
+    "abstract": "Stereo vision is essential for many applications. Currently, the synchronization of the streams coming from two cameras is done using mostly hardware. A software-based synchronization method would reduce the cost, weight and size of the entire system and allow for more flexibility when building such systems. With this goal in mind, we present here a comparison of different deep learning-based systems and prove that some are efficient and generalizable enough for such a task. This study paves the way to a production ready software-based video synchronization system."
+  },
+  {
+    "title": "Estimating 3D Motion and Forces of Person-Object Interactions from\n  Monocular Video",
+    "doi": "1904.02683",
+    "year": 2019,
+    "citation_count": 0,
+    "abstract": "In this paper, we introduce a method to automatically reconstruct the 3D motion of a person interacting with an object from a single RGB video. Our method estimates the 3D poses of the person and the object, contact positions, and forces and torques actuated by the human limbs. The main contributions of this work are three-fold. First, we introduce an approach to jointly estimate the motion and the actuation forces of the person on the manipulated object by modeling contacts and the dynamics of their interactions. This is cast as a large-scale trajectory optimization problem. Second, we develop a method to automatically recognize from the input video the position and timing of contacts between the person and the object or the ground, thereby significantly simplifying the complexity of the optimization. Third, we validate our approach on a recent MoCap dataset with ground truth contact forces and demonstrate its performance on a new dataset of Internet videos showing people manipulating a variety of tools in unconstrained environments."
+  },
+  {
+    "title": "PAL: Intelligence Augmentation using Egocentric Visual Context Detection",
+    "doi": "2105.10735",
+    "year": 2021,
+    "citation_count": 1,
+    "abstract": "Egocentric visual context detection can support intelligence augmentation applications. We created a wearable system, called PAL, for wearable, personalized, and privacy-preserving egocentric visual context detection. PAL has a wearable device with a camera, heart-rate sensor, on-device deep learning, and audio input/output. PAL also has a mobile/web application for personalized context labeling. We used on-device deep learning models for generic object and face detection, low-shot custom face and context recognition (e.g., activities like brushing teeth), and custom context clustering (e.g., indoor locations). The models had over 80\\% accuracy in in-the-wild contexts (~1000 images) and we tested PAL for intelligence augmentation applications like behavior change. We have made PAL is open-source to further support intelligence augmentation using personalized and privacy-preserving egocentric visual contexts."
+  }
+]

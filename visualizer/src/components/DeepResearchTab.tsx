@@ -26,8 +26,6 @@ import type {
 } from "../types";
 import { MetricGraph } from "./MetricGraph";
 
-const IMAGENET_GAP = "Transformer-Augmented Vision Adaptation Gap";
-
 const mono = "inherit";
 const serif = "inherit";
 const DIM = "var(--border-subtle)";
@@ -36,7 +34,18 @@ const BORDER = "var(--border-default)";
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function shortId(id: string) {
-  return id.replace(/^expert:/, "").replace(/_/g, " ");
+  if (id.startsWith("search:")) return `search · ${id.slice(7).replace(/_/g, " ")}`;
+  if (id.startsWith("analysis:")) return `analysis · ${id.slice(9).replace(/_/g, " ")}`;
+  return id
+    .replace(/^expert:/, "analysis · ")
+    .replace("orchestration-agent", "diagnosis agent")
+    .replace("planning-agent", "planning agent")
+    .replace("coding-agent", "coding agent")
+    .replace("execution-agent", "execution agent")
+    .replace("debugging-agent", "debugging agent")
+    .replace("judge-agent", "judge agent")
+    .replace("resolution-agent", "resolution agent")
+    .replace(/_/g, " ");
 }
 
 function truncate(s: string, n: number) {
@@ -53,6 +62,39 @@ function toStr(val: unknown): string {
   } catch {
     return String(val);
   }
+}
+
+function summarizePlan(raw: unknown): string {
+  if (!raw) return "";
+  if (typeof raw === "string") return raw;
+  if (typeof raw !== "object") return toStr(raw);
+  const plan = raw as Record<string, unknown>;
+  const parts = [
+    toStr(plan.summary),
+    Array.isArray(plan.steps) && plan.steps.length
+      ? `Steps:\n${plan.steps.map((step) => `- ${toStr(step)}`).join("\n")}`
+      : "",
+    toStr(plan.expected_effect) ? `Expected effect: ${toStr(plan.expected_effect)}` : "",
+    toStr(plan.validation) ? `Validation: ${toStr(plan.validation)}` : "",
+  ].filter(Boolean);
+  return parts.join("\n\n");
+}
+
+function summarizeDiagnosis(raw: unknown): string {
+  if (!raw) return "";
+  if (typeof raw === "string") return raw;
+  if (typeof raw !== "object") return toStr(raw);
+  const diagnosis = raw as Record<string, unknown>;
+  const sections = [
+    toStr(diagnosis.summary),
+    Array.isArray(diagnosis.issues) && diagnosis.issues.length
+      ? `Issues:\n${diagnosis.issues.map((item) => `- ${toStr(item)}`).join("\n")}`
+      : "",
+    Array.isArray(diagnosis.suggestions) && diagnosis.suggestions.length
+      ? `Suggestions:\n${diagnosis.suggestions.map((item) => `- ${toStr(item)}`).join("\n")}`
+      : "",
+  ].filter(Boolean);
+  return sections.join("\n\n");
 }
 
 // ── sub-components ─────────────────────────────────────────────────────────────
@@ -544,7 +586,8 @@ const AgentPanel: React.FC<{
   crossIdeas: CrossIdea[];
   currentEvents: string[];
   allLogs: string[];
-}> = ({ activeAgents, seedIdeas, crossIdeas, currentEvents, allLogs }) => {
+  roleSummaries: Record<string, string>;
+}> = ({ activeAgents, seedIdeas, crossIdeas, currentEvents, allLogs, roleSummaries }) => {
   const logBoxRef = useRef<HTMLDivElement>(null);
   const rawLogPanelRef = useRef<HTMLDetailsElement>(null);
   const [rawLogHeight, setRawLogHeight] = useState(120);
@@ -624,21 +667,26 @@ const AgentPanel: React.FC<{
           </div>
         ) : (
           liveIds.map((agentId) => {
+            const sourceAgentId = agentId.startsWith("analysis:") ? agentId.slice(9) : agentId;
             // activeAgents IDs are 'expert:introcnn'; parsed log IDs are 'introcnn' —
             // try both so the card always gets its message
             const msg = [...agentMessages]
               .reverse()
               .find(
-                (m) => m.agentId === agentId || m.agentId === shortId(agentId),
+                (m) =>
+                  m.agentId === agentId ||
+                  m.agentId === shortId(agentId) ||
+                  m.agentId === sourceAgentId ||
+                  m.agentId === shortId(sourceAgentId),
               );
-            const seedIdea = seedIdeas.find((s) => s.agent_id === agentId);
-            const crossIdea = crossIdeas.find((c) => c.agent_id === agentId);
+            const seedIdea = seedIdeas.find((s) => s.agent_id === sourceAgentId);
+            const crossIdea = crossIdeas.find((c) => c.agent_id === sourceAgentId);
             return (
               <AgentOutputCard
                 key={agentId}
                 agentId={agentId}
                 msg={msg}
-                ideaText={crossIdea?.text || seedIdea?.text}
+                ideaText={roleSummaries[agentId] || crossIdea?.text || seedIdea?.text}
               />
             );
           })
@@ -1181,13 +1229,22 @@ export const DeepResearchTab: React.FC<Props> = ({
   const [jobStage, setJobStage] = useState<
     "ingesting" | "ready" | "researching" | "complete"
   >("ingesting");
+  const [researchOutcome, setResearchOutcome] = useState("");
+  const [launchError, setLaunchError] = useState("");
   const [launching, setLaunching] = useState(false);
   const [orchestratorWidth, setOrchestratorWidth] = useState(220);
   const [ideasWidth, setIdeasWidth] = useState(280);
   const dashboardRef = useRef<HTMLDivElement>(null);
 
-  const metricKey =
-    voidName === IMAGENET_GAP ? "test_accuracy" : "predicted_accuracy";
+  const metricKey = "test_accuracy";
+  const effectiveMetricKey = useMemo(() => {
+    const hasTestAccuracy = events.some((event) => {
+      if (event.event !== "experiment_done") return false;
+      const metrics = event.payload.metrics as Record<string, unknown> | undefined;
+      return metrics?.test_accuracy !== undefined;
+    });
+    return hasTestAccuracy ? "test_accuracy" : metricKey;
+  }, [events, metricKey]);
 
   // Poll job stage every 2 s
   useEffect(() => {
@@ -1197,8 +1254,9 @@ export const DeepResearchTab: React.FC<Props> = ({
       try {
         const r = await fetch(`/api/investigate/${jobId}/status`);
         if (r.ok) {
-          const d = (await r.json()) as { stage: typeof jobStage };
+          const d = (await r.json()) as { stage: typeof jobStage; outcome?: string };
           setJobStage(d.stage);
+          if (d.outcome) setResearchOutcome(d.outcome);
         }
       } catch {
         /* ignore */
@@ -1213,13 +1271,20 @@ export const DeepResearchTab: React.FC<Props> = ({
 
   const handleStartResearch = useCallback(async () => {
     setLaunching(true);
+    setLaunchError("");
     try {
-      await fetch(`/api/investigate/${jobId}/start-research`, {
+      const response = await fetch(`/api/investigate/${jobId}/start-research`, {
         method: "POST",
       });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(detail.error || `Research could not start (${response.status})`);
+      }
       setJobStage("researching");
     } catch (e) {
       console.error("start-research error", e);
+      setLaunchError(e instanceof Error ? e.message : String(e));
+      setJobStage("ready");
     } finally {
       setLaunching(false);
     }
@@ -1231,54 +1296,29 @@ export const DeepResearchTab: React.FC<Props> = ({
     const poll = async () => {
       if (cancelled) return;
       try {
-        const [evtResp, metResp] = await Promise.all([
-          fetch(`/api/investigate/${jobId}/research-events`),
-          fetch(`/api/investigate/${jobId}/latest-metrics`),
-        ]);
+        const evtResp = await fetch(`/api/investigate/${jobId}/research-events`);
         if (evtResp.ok) {
           const data: ResearchEvent[] = await evtResp.json();
           setEvents(data);
           // Extract metric points from experiment_done events
           const pts = data
             .filter((e) => e.event === "experiment_done")
-            .map((e, i) => {
+            .map((e, i): MetricPoint | null => {
               const m = e.payload.metrics as
                 | Record<string, unknown>
                 | undefined;
-              const v = m
-                ? Number(
-                    m[metricKey] ??
-                      m.test_accuracy ??
-                      m.predicted_accuracy ??
-                      0,
-                  )
-                : 0;
+              const rawValue = m?.[effectiveMetricKey] ?? m?.test_accuracy ?? m?.predicted_accuracy;
+              if (rawValue === undefined || rawValue === null || rawValue === "") return null;
+              const v = Number(rawValue);
+              if (!Number.isFinite(v)) return null;
               return {
                 iteration: (e.payload.iteration as number) ?? i,
                 value: v,
                 label: `i${(e.payload.iteration as number) ?? i}`,
               };
-            });
+            })
+            .filter((point): point is MetricPoint => point !== null);
           if (pts.length) setMetricPoints(pts);
-        }
-        if (metResp.ok) {
-          const met = (await metResp.json()) as Record<string, unknown> | null;
-          if (met) {
-            const v = Number(
-              met[metricKey] ??
-                met.test_accuracy ??
-                met.predicted_accuracy ??
-                0,
-            );
-            if (v > 0) {
-              setMetricPoints((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.value === v) return prev;
-                const n = prev.length;
-                return [...prev, { iteration: n, value: v, label: `i${n}` }];
-              });
-            }
-          }
         }
       } catch {
         /* network error — ignore */
@@ -1289,7 +1329,7 @@ export const DeepResearchTab: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [jobId, metricKey]);
+  }, [jobId, effectiveMetricKey]);
 
   // Track recent log lines from the investigation SSE stream
   useEffect(() => {
@@ -1302,7 +1342,7 @@ export const DeepResearchTab: React.FC<Props> = ({
         const d = JSON.parse(ev.data) as { type: string; message?: string };
         if (d.type === "log" && d.message) {
           lines.push(d.message);
-          if (lines.length > 2000) lines.splice(0, lines.length - 2000);
+          if (lines.length > 300) lines.splice(0, lines.length - 300);
           setRecentLogs([...lines]);
         }
         if (d.type === "done") {
@@ -1382,16 +1422,38 @@ export const DeepResearchTab: React.FC<Props> = ({
   }, [events]);
 
   const currentPhase = useMemo(() => {
-    const phases = recentLogs
-      .filter((l) => l.includes("PHASE") || l.includes("▶"))
-      .slice(-1);
-    return (
-      phases[0]
-        ?.replace(/\[.*?s\]/, "")
-        .replace("▶", "")
-        .trim() ?? ""
-    );
-  }, [recentLogs]);
+    if (jobStage === "complete") return "Research complete";
+    const latest = [...events].reverse().find((event) => !["artifact_written"].includes(event.event));
+    const phases: Record<string, string> = {
+      baseline_failed: "Baseline environment failed",
+      resolution_agent_done: "Resolution agent selected the next action",
+      debugging_done: "Debugging agent applied a repair",
+      debugging_agent_start: "Debugging failed candidate",
+      judge_done: "Judge reviewed results",
+      judge_agent_start: "Judge comparing metrics",
+      execution_agent_done: "Execution agent finished evaluation",
+      execution_agent_start: "Execution agent running candidate",
+      coding_done: "Coding agent applied plan",
+      coding_agent_start: "Coding agent implementing plan",
+      plan_done: "Planning implementation",
+      planning_agent_start: "Planning agent synthesizing evidence",
+      cross_ideas_done: "Cross-pollinating ideas",
+      analysis_agent_done: "Paper analysis complete",
+      analysis_agent_start: "Paper agent analyzing evidence",
+      zero_exa_search_failed: "Zero/Exa unavailable; continuing with local evidence",
+      zero_exa_search_done: "Zero/Exa live evidence ready",
+      zero_exa_search_start: "Zero discovering and calling Exa Search",
+      search_agent_done: "Evidence search complete",
+      search_agent_start: "Searching selected papers",
+      agents_selected: "Selecting relevant paper agents",
+      orchestration_diagnosis_done: "Diagnosing baseline",
+      experiment_start: "Running baseline evaluation",
+      session_start: "Starting research loop",
+    };
+    if (latest && phases[latest.event]) return phases[latest.event];
+    const logPhases = recentLogs.filter((l) => l.includes("▶")).slice(-1);
+    return logPhases[0]?.replace(/\[.*?s\]/, "").replace("▶", "").trim() ?? "";
+  }, [events, recentLogs, jobStage]);
 
   const seedIdeas = useMemo<SeedIdea[]>(() => {
     const e = events
@@ -1430,14 +1492,14 @@ export const DeepResearchTab: React.FC<Props> = ({
 
   const currentPlan = useMemo(() => {
     const e = events.filter((ev) => ev.event === "plan_done").slice(-1)[0];
-    return toStr(e?.payload.plan);
+    return summarizePlan(e?.payload.plan);
   }, [events]);
 
   const diagnosis = useMemo(() => {
     const e = events
       .filter((ev) => ev.event === "orchestration_diagnosis_done")
       .slice(-1)[0];
-    return toStr(e?.payload.diagnosis);
+    return summarizeDiagnosis(e?.payload.diagnosis);
   }, [events]);
 
   const judgeEvent = useMemo(() => {
@@ -1458,7 +1520,83 @@ export const DeepResearchTab: React.FC<Props> = ({
     const e = events
       .filter((ev) => ev.event === "agents_selected")
       .slice(-1)[0];
-    return (e?.payload.agents as string[]) ?? [];
+    const agents = ((e?.payload.agents as string[]) ?? []).map((id) => `analysis:${id}`);
+    for (const ev of events.filter((item) => item.event === "search_agent_start")) {
+      const id = toStr(ev.payload.agent_id);
+      if (id) agents.push(id);
+    }
+    if (events.some((ev) => ev.event === "zero_exa_search_start")) {
+      agents.push("zero:exa-search");
+    }
+    if (events.some((ev) => ev.event === "orchestration_diagnosis_done")) {
+      agents.unshift("orchestration-agent");
+    }
+    if (events.some((ev) => ev.event === "plan_done")) {
+      agents.push("planning-agent");
+    }
+    if (events.some((ev) => ev.event === "coding_done")) {
+      agents.push("coding-agent");
+    }
+    if (events.some((ev) => ev.event === "execution_agent_start")) {
+      agents.push("execution-agent");
+    }
+    if (events.some((ev) => ev.event === "debugging_agent_start")) {
+      agents.push("debugging-agent");
+    }
+    if (events.some((ev) => ev.event === "judge_done")) {
+      agents.push("judge-agent");
+    }
+    if (events.some((ev) => ev.event === "resolution_agent_done")) {
+      agents.push("resolution-agent");
+    }
+    return [...new Set(agents)];
+  }, [events]);
+
+  const roleSummaries = useMemo<Record<string, string>>(() => {
+    const summaries: Record<string, string> = {};
+    for (const event of events) {
+      if (event.event === "search_agent_done") {
+        const id = toStr(event.payload.agent_id);
+        const count = Number(event.payload.evidence_count ?? 0);
+        const evidence = (event.payload.evidence as Array<Record<string, unknown>> | undefined) ?? [];
+        summaries[id] = `Retrieved ${count} grounded evidence passage${count === 1 ? "" : "s"}. ${toStr(evidence[0]?.text)}`;
+      } else if (event.event === "zero_exa_search_done") {
+        const count = Number(event.payload.evidence_count ?? 0);
+        const results = (event.payload.results as Array<Record<string, unknown>> | undefined) ?? [];
+        summaries["zero:exa-search"] = `Exa returned ${count} live result${count === 1 ? "" : "s"} through Zero. ${toStr(results[0]?.title)}`;
+      } else if (event.event === "zero_exa_search_failed") {
+        summaries["zero:exa-search"] = `Live search failed safely; local paper retrieval continued. ${toStr(event.payload.error)}`;
+      } else if (event.event === "analysis_agent_done") {
+        const id = toStr(event.payload.agent_id);
+        const ideas = (event.payload.ideas as Array<Record<string, unknown>> | undefined) ?? [];
+        summaries[`analysis:${id}`] = toStr(ideas[0]?.text) || "Analyzed the selected paper evidence.";
+      } else if (event.event === "orchestration_diagnosis_done") {
+        summaries["orchestration-agent"] = summarizeDiagnosis(event.payload.diagnosis);
+      } else if (event.event === "plan_done") {
+        summaries["planning-agent"] = summarizePlan(event.payload.plan);
+      } else if (event.event === "coding_done") {
+        const changed = (event.payload.changed_files as string[] | undefined) ?? [];
+        summaries["coding-agent"] = changed.length
+          ? `Applied the plan to ${changed.join(", ")}.`
+          : toStr(event.payload.notes);
+      } else if (event.event === "execution_agent_done") {
+        summaries["execution-agent"] = `Evaluation finished with return code ${toStr(event.payload.returncode)}. Metrics: ${toStr(event.payload.metrics)}`;
+      } else if (event.event === "debugging_done") {
+        summaries["debugging-agent"] = toStr(event.payload.notes);
+      } else if (event.event === "judge_done") {
+        const judge = event.payload.judge as Record<string, unknown> | undefined;
+        summaries["judge-agent"] = `${toStr(judge?.decision)}: ${toStr(judge?.feedback ?? judge?.raw)}`;
+      } else if (event.event === "resolution_agent_done") {
+        summaries["resolution-agent"] = `${toStr(event.payload.decision)} — ${toStr(event.payload.action)}`;
+      }
+    }
+    return summaries;
+  }, [events]);
+
+  useEffect(() => {
+    const done = events.filter((event) => event.event === "session_done").slice(-1)[0];
+    const outcome = toStr(done?.payload.outcome);
+    if (outcome) setResearchOutcome(outcome);
   }, [events]);
 
   // Derive and emit animation phase to EmbeddingAtlas
@@ -1571,7 +1709,13 @@ export const DeepResearchTab: React.FC<Props> = ({
             whiteSpace: "nowrap",
           }}
         >
-          {currentPhase || (jobStage === "ingesting" ? "Preparing papers" : "Ready")}
+          {jobStage === "complete"
+            ? researchOutcome === "improved"
+              ? "Validated improvement found"
+              : researchOutcome === "no_validated_improvement"
+                ? "Finished without a validated improvement"
+                : "Research finished"
+            : currentPhase || (jobStage === "ingesting" ? "Preparing papers" : "Ready")}
         </div>
       </header>
 
@@ -1711,6 +1855,7 @@ export const DeepResearchTab: React.FC<Props> = ({
           crossIdeas={crossIdeas}
           currentEvents={recentLogs}
           allLogs={recentLogs}
+          roleSummaries={roleSummaries}
         />
 
         {/* Right: ideas and metrics */}
@@ -1733,7 +1878,7 @@ export const DeepResearchTab: React.FC<Props> = ({
               points={metricPoints}
               width={220}
               height={100}
-              metricKey={metricKey}
+              metricKey={effectiveMetricKey}
             />
           </div>
         </aside>
@@ -1774,26 +1919,33 @@ export const DeepResearchTab: React.FC<Props> = ({
         )}
 
         {jobStage === "ready" && (
-          <button
-            onClick={handleStartResearch}
-            disabled={launching}
-            style={{
-              background: "var(--accent)",
-              color: "var(--accent-foreground)",
-              border: "none",
-              borderRadius: "var(--radius-md)",
-              padding: "12px 40px",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: launching ? "wait" : "pointer",
-              boxShadow: "var(--shadow-md)",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            {launching ? "Launching…" : "Research"}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <button
+              onClick={handleStartResearch}
+              disabled={launching}
+              style={{
+                background: "var(--accent)",
+                color: "var(--accent-foreground)",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                padding: "12px 40px",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: launching ? "wait" : "pointer",
+                boxShadow: "var(--shadow-md)",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              {launching ? "Checking research runtime…" : "Research"}
+            </button>
+            {launchError && (
+              <div style={{ maxWidth: 760, color: "var(--danger)", fontSize: 11, textAlign: "center" }}>
+                {launchError}
+              </div>
+            )}
+          </div>
         )}
 
         {jobStage === "researching" && (
@@ -1828,19 +1980,21 @@ export const DeepResearchTab: React.FC<Props> = ({
         {jobStage === "complete" && (
           <div
             style={{
-              background: "var(--success-soft)",
-              border: "1px solid var(--success)",
+              background: researchOutcome === "improved" ? "var(--success-soft)" : "var(--warning-soft)",
+              border: `1px solid ${researchOutcome === "improved" ? "var(--success)" : "var(--warning)"}`,
               borderRadius: "var(--radius-md)",
               padding: "9px 22px",
               fontFamily: mono,
               fontSize: 12,
-              color: "var(--success)",
+              color: researchOutcome === "improved" ? "var(--success)" : "var(--warning)",
               display: "flex",
               alignItems: "center",
               gap: 8,
             }}
           >
-            Research complete
+            {researchOutcome === "improved"
+              ? "Research complete — validated improvement"
+              : "Research finished — no validated improvement; inspect judge feedback"}
           </div>
         )}
       </div>

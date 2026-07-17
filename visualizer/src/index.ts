@@ -2,6 +2,7 @@ import { serve } from "bun";
 import index from "./index.html";
 import { readParquet } from 'parquet-wasm/node';
 import { resolve } from 'path';
+import { mkdirSync } from 'fs';
 
 // ── Research investigation job management ─────────────────────────────────────
 
@@ -11,6 +12,8 @@ interface InvestigationJob {
   stage:       'ingesting' | 'ready' | 'researching' | 'complete';
   voidId:      number;
   voidName:    string;
+  papers:      Array<{ doi?: string; title: string; abstract?: string; year?: number }>;
+  outcome?:    string;
   subscribers: Set<(msg: string, type: string) => void>;
   sessionDir?: string;   // set once the research orchestrator announces it
 }
@@ -25,8 +28,146 @@ const codegenJobs = new Map<string, CodegenJob>();
 
 const activeJobs = new Map<string, InvestigationJob>();
 
+interface ResearchProblemConfig {
+  problemDir: string;
+  problem: string;
+  runCommand: string;
+  metric: string;
+  papers: string[];
+}
+
 function makeJobId(): string {
   return `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function researchEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const gx10Url = process.env.LOCAL_LLM_URL ?? '';
+  const explicitBackend = process.env.LLM_BACKEND?.trim();
+  const inferredBackend =
+    explicitBackend ||
+    (process.env.ANTHROPIC_API_KEY ? 'anthropic' :
+      process.env.OPENROUTER_API_KEY ? 'openrouter' :
+        'offline');
+
+  return {
+    ...process.env,
+    LLM_BACKEND:        inferredBackend,
+    ANTHROPIC_API_KEY:  process.env.ANTHROPIC_API_KEY ?? '',
+    LOCAL_LLM_URL:      gx10Url,
+    LOCAL_LLM_MODEL:    process.env.LOCAL_LLM_MODEL ?? 'gemma4:latest',
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? '',
+    PYTHONUNBUFFERED:   '1',
+    ...extra,
+  };
+}
+
+function resolveResearchPython(rootDir: string): string {
+  const virtualEnvPython = process.env.VIRTUAL_ENV
+    ? resolve(process.env.VIRTUAL_ENV, 'bin', 'python')
+    : '';
+  const candidates = [
+    process.env.RESEARCH_PYTHON ?? '',
+    virtualEnvPython,
+    '/opt/homebrew/bin/python3',
+    'python3',
+  ].filter(Boolean);
+
+  const failures: string[] = [];
+  for (const candidate of [...new Set(candidates)]) {
+    const probe = Bun.spawnSync({
+      cmd: [candidate, '-c', 'import sys, torch; print(sys.executable)'],
+      cwd: rootDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: researchEnv(),
+    });
+    if (probe.exitCode === 0) return candidate;
+    const detail = new TextDecoder().decode(probe.stderr).trim().split('\n').slice(-1)[0] ?? 'probe failed';
+    failures.push(`${candidate}: ${detail}`);
+  }
+  throw new Error(
+    `No Python runtime with PyTorch is available. Set RESEARCH_PYTHON to the correct interpreter. ${failures.join(' | ')}`,
+  );
+}
+
+function visionResearchProblem(): ResearchProblemConfig {
+  return {
+    problemDir: 'research_problems/imagenet_cnn',
+    problem: 'Improve the Tiny-ImageNet style CNN classifier while keeping the evaluation command, RGB image input, and metrics contract fixed.',
+    runCommand: 'python3 train.py --dataset fake --epochs 2 --limit-train 400 --limit-test 160 --image-size 32 --data-dir data --metrics-out logs/latest_metrics.json --log-file logs/train_events.jsonl',
+    metric: 'test_accuracy',
+    papers: [
+      'data/cleaned_json/an_introduction_to_convolutional_neural_networks_cleaned.json',
+      'data/cleaned_json/an_image_is_worth_16x16_words_transformers_for_image_recognition_at_scale_cleaned.json',
+      'data/cleaned_json/attention_is_all_you_need_cleaned.json',
+    ],
+  };
+}
+
+function mnistResearchProblem(): ResearchProblemConfig {
+  return {
+    problemDir: 'research_problems/mnist_fcnn',
+    problem: 'Improve a poorly performing MNIST classifier while keeping the evaluation command and metrics contract fixed.',
+    runCommand: 'python3 train.py --dataset fake --epochs 2 --limit-train 800 --limit-test 200 --data-dir data --metrics-out logs/latest_metrics.json --log-file logs/train_events.jsonl',
+    metric: 'test_accuracy',
+    papers: [
+      'data/cleaned_json/improving_classification_neural_networks_by_using_absolute_activation_function_mnistlenet-5_example_cleaned.json',
+      'data/cleaned_json/an_introduction_to_convolutional_neural_networks_cleaned.json',
+      'data/cleaned_json/attention_is_all_you_need_cleaned.json',
+      'data/cleaned_json/fast_kv_compaction_via_attention_matching_cleaned.json',
+    ],
+  };
+}
+
+function resolveResearchProblem(voidName: string): ResearchProblemConfig {
+  const normalized = voidName.toLowerCase();
+  if (
+    normalized.includes('mnist') ||
+    normalized.includes('classification') ||
+    normalized.includes('transformer-augmented')
+  ) {
+    return mnistResearchProblem();
+  }
+
+  return visionResearchProblem();
+}
+
+function safePaperId(value: string, index: number): string {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return (normalized || `paper_${index + 1}`).slice(0, 100);
+}
+
+async function stageSelectedPapers(
+  job: InvestigationJob,
+  sessionDir: string,
+): Promise<string[]> {
+  const paperDir = resolve(sessionDir, 'source_papers');
+  mkdirSync(paperDir, { recursive: true });
+  const paths: string[] = [];
+
+  for (const [index, paper] of job.papers.entries()) {
+    const title = String(paper.title || `Boundary paper ${index + 1}`).trim();
+    const abstract = String(paper.abstract || '').trim();
+    const paperId = safePaperId(String(paper.doi || title), index);
+    const path = resolve(paperDir, `${paperId}.json`);
+    const evidenceText = abstract ||
+      `${title}. This boundary paper was selected from the knowledge void "${job.voidName}". ` +
+      `Use its title and relationship to the other selected papers as limited evidence; do not invent findings.`;
+    await Bun.write(path, JSON.stringify({
+      paper_id: paperId,
+      title,
+      abstract: evidenceText,
+      pdf_parse: {
+        paper_id: paperId,
+        abstract: [{ text: evidenceText, section: 'Abstract', sec_num: null }],
+        body_text: [],
+        back_matter: [],
+        ref_entries: {},
+      },
+    }, null, 2));
+    paths.push(path);
+  }
+  return paths;
 }
 
 // ── Shared subprocess pipe helper ─────────────────────────────────────────────
@@ -82,10 +223,10 @@ async function spawnInvestigation(
   jobId: string,
   voidId: number,
   voidName: string,
-  papers: Array<{ doi: string; title: string }>,
+  papers: Array<{ doi?: string; title: string; abstract?: string; year?: number }>,
 ): Promise<void> {
   const rootDir  = resolve(import.meta.dir, '../..');
-  const gx10Url  = process.env.LOCAL_LLM_URL ?? 'http://100.123.34.54:11434';
+  const gx10Url  = process.env.LOCAL_LLM_URL ?? '';
   const scriptPy = resolve(rootDir, 'run_investigation.py');
 
   const job: InvestigationJob = {
@@ -94,6 +235,7 @@ async function spawnInvestigation(
     stage:       'ingesting',
     voidId,
     voidName,
+    papers,
     subscribers: new Set(),
   };
   activeJobs.set(jobId, job);
@@ -111,15 +253,7 @@ async function spawnInvestigation(
     stdout: 'pipe',
     stderr: 'pipe',
     cwd: rootDir,
-    env: {
-      ...process.env,
-      LLM_BACKEND:        process.env.LLM_BACKEND ?? 'anthropic',
-      ANTHROPIC_API_KEY:  process.env.ANTHROPIC_API_KEY ?? '',
-      LOCAL_LLM_URL:      gx10Url,
-      LOCAL_LLM_MODEL:    process.env.LOCAL_LLM_MODEL ?? 'gemma4:latest',
-      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? 'not_used',
-      PYTHONUNBUFFERED:   '1',
-    },
+    env: researchEnv({ LOCAL_LLM_URL: gx10Url }),
   });
 
   // Drain both streams and wait for process exit — in that order so all output
@@ -188,6 +322,13 @@ const server = serve({
   port: Number(process.env.PORT ?? 3000),
   routes: {
 
+    "/api/health": () => Response.json({
+      ok: true,
+      service: "lakuna-visualizer",
+      backend: process.env.LLM_BACKEND ?? "offline",
+      time: new Date().toISOString(),
+    }),
+
     "/public/umap_cv.parquet": async () => {
       const bytes = await Bun.file(resolve("public/umap_cv.parquet")).arrayBuffer();
       const table = readParquet(new Uint8Array(bytes));
@@ -238,7 +379,7 @@ const server = serve({
         // Fire and don't await — investigation runs in background
         spawnInvestigation(
           jobId, voidId, voidName,
-          papers as Array<{ doi: string; title: string }>,
+          papers as Array<{ doi?: string; title: string; abstract?: string; year?: number }>,
         ).catch(err => console.error(`[investigate] spawn error:`, err));
 
         return Response.json({ jobId });
@@ -264,7 +405,7 @@ const server = serve({
     "/api/investigate/:jobId/status": async req => {
       const job = activeJobs.get(req.params.jobId);
       if (!job) return new Response('Not found', { status: 404 });
-      return Response.json({ stage: job.stage, status: job.status });
+      return Response.json({ stage: job.stage, status: job.status, outcome: job.outcome });
     },
 
     // Start the research phase (called when user clicks "Research")
@@ -281,67 +422,89 @@ const server = serve({
         const rootDir = resolve(import.meta.dir, '../..');
         const push    = makePusher(job);
 
-        // ── MNIST swarm: run shell script + tail the structured log file ──────
-        if (job.voidName === 'Transformer-Augmented Vision Adaptation Gap') {
-          const swarmDir = resolve(rootDir, 'research_problems/mnist_fcnn');
-          const logFile  = resolve(swarmDir, 'logs/research_swarm_live.log');
+        let researchPython: string;
+        try {
+          researchPython = resolveResearchPython(rootDir);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          job.status = 'error';
+          job.stage = 'ready';
+          job.outcome = 'dependency_error';
+          notify(job, `=== RESEARCH DEPENDENCY ERROR — ${message} ===`, 'error');
+          return Response.json({ error: message }, { status: 503 });
+        }
+
+        // ── Executable research-problem loop: diagnosis → plan → code → judge ─
+        const researchProblem = resolveResearchProblem(job.voidName);
+        {
+          const problemDir = resolve(rootDir, researchProblem.problemDir);
+          const logFile  = resolve(problemDir, 'logs/research_swarm_live.log');
+          const sessionDir = resolve(
+            problemDir,
+            'logs',
+            'visualizer_sessions',
+            `${req.params.jobId}_${Date.now()}`,
+          );
+          job.sessionDir = sessionDir;
+          const selectedPaperPaths = await stageSelectedPapers(job, sessionDir);
+          const paperPaths = selectedPaperPaths.length > 0
+            ? selectedPaperPaths
+            : researchProblem.papers.map(p => resolve(rootDir, p));
+          const reset = Bun.spawnSync({
+            cmd: ['bash', 'reset_baseline.sh'],
+            cwd: problemDir,
+            stdout: 'pipe',
+            stderr: 'pipe',
+          });
+          if (reset.exitCode !== 0) {
+            push('[ERR] ', `Failed to reset research problem baseline before run.`);
+          }
+
+          const zeroExaArgs = /^(1|true|yes|on)$/i.test(process.env.ZERO_EXA_ENABLED ?? '')
+            ? [
+                '--zero-exa',
+                '--zero-exa-max-results', process.env.ZERO_EXA_MAX_RESULTS ?? '4',
+                '--zero-exa-max-pay', process.env.ZERO_EXA_MAX_PAY_USD ?? '0.02',
+                '--zero-exa-timeout', process.env.ZERO_EXA_TIMEOUT_SECONDS ?? '60',
+              ]
+            : [];
 
           const proc = Bun.spawn({
-            cmd: ['bash', 'run_research_swarm.sh'],
-            stdout: 'pipe', stderr: 'pipe', cwd: swarmDir,
-            env: { ...process.env, PYTHONUNBUFFERED: '1' },
+            cmd: [
+              researchPython, resolve(rootDir, 'run.py'), 'research', problemDir,
+              '--problem', `${researchProblem.problem} Knowledge void: ${job.voidName}. Ground every proposal in the selected boundary papers.`,
+              '--papers', ...paperPaths,
+              '--run-command', researchProblem.runCommand.replace(/^python3\b/, researchPython),
+              '--metrics-file', 'logs/latest_metrics.json',
+              '--metric', researchProblem.metric,
+              '--editable', 'model.py',
+              '--iterations', process.env.RESEARCH_SWARM_ITERATIONS ?? '3',
+              '--max-agents', String(Math.min(5, Math.max(1, paperPaths.length))),
+              '--max-cross-ideas', '6',
+              '--session-dir', sessionDir,
+              '--log-file', logFile,
+              ...zeroExaArgs,
+            ],
+            stdout: 'pipe', stderr: 'pipe', cwd: rootDir,
+            env: researchEnv(),
           });
 
           const stdoutDone = drainStream(proc.stdout, '',     push);
           const stderrDone = drainStream(proc.stderr, '',     push);
 
-          // Tail the structured log file (contains DEBUG TOKEN lines not on stderr)
-          const stopTail = { stop: false };
-          ;(async () => {
-            let offset = -1; // -1 = wait for file to appear, then snapshot size
-            while (!stopTail.stop) {
-              try {
-                const f = Bun.file(logFile);
-                if (await f.exists()) {
-                  const buf  = await f.arrayBuffer();
-                  const text = new TextDecoder().decode(buf);
-                  if (offset === -1) {
-                    // First read after file appears: start from current end so we
-                    // only stream content written by THIS run.
-                    offset = text.length;
-                  } else if (text.length > offset) {
-                    const newText = text.slice(offset);
-                    offset = text.length;
-                    for (const line of newText.split('\n')) {
-                      if (line.trim()) push('[SWARM] ', line);
-                    }
-                  }
-                }
-              } catch { /* file not yet writable */ }
-              await Bun.sleep(400);
-            }
-          })();
-
           ;(async () => {
             const code = await proc.exited;
             await Promise.allSettled([stdoutDone, stderrDone]);
-            stopTail.stop = true;
 
-            // One final log-file drain to catch any lines buffered before exit
-            await Bun.sleep(600);
+            // Ensure event polling can begin even if stdout parsing lags.
+            job.sessionDir = sessionDir;
+
             try {
-              const f = Bun.file(logFile);
-              if (await f.exists()) {
-                const buf  = await f.arrayBuffer();
-                const text = new TextDecoder().decode(buf);
-                if (text.length > (offset ?? 0)) {
-                  const newText = text.slice(offset ?? 0);
-                  for (const line of newText.split('\n')) {
-                    if (line.trim()) push('[SWARM] ', line);
-                  }
-                }
-              }
-            } catch { /* ignore */ }
+              const summary = await Bun.file(resolve(sessionDir, 'summary.json')).json() as { outcome?: string };
+              job.outcome = summary.outcome;
+            } catch {
+              job.outcome = code === 0 ? 'finished' : 'error';
+            }
 
             job.status = code === 0 ? 'done' : 'error';
             job.stage  = code === 0 ? 'complete' : 'ready';
@@ -353,46 +516,6 @@ const server = serve({
 
           return Response.json({ ok: true });
         }
-
-        // ── Default path: generic research swarm python script ────────────────
-        const gx10Url  = process.env.LOCAL_LLM_URL ?? 'http://100.123.34.54:11434';
-        const scriptPy = resolve(rootDir, 'run_research_swarm.py');
-
-        const proc = Bun.spawn({
-          cmd: [
-            'python3', scriptPy,
-            '--void-id',   String(job.voidId),
-            '--void-name', job.voidName,
-            '--gx10-url',  gx10Url,
-          ],
-          stdout: 'pipe', stderr: 'pipe', cwd: rootDir,
-          env: {
-            ...process.env,
-            LLM_BACKEND:        process.env.LLM_BACKEND ?? 'anthropic',
-            ANTHROPIC_API_KEY:  process.env.ANTHROPIC_API_KEY ?? '',
-            LOCAL_LLM_URL:      gx10Url,
-            LOCAL_LLM_MODEL:    process.env.LOCAL_LLM_MODEL ?? 'gemma4:latest',
-            OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? 'not_used',
-            PYTHONUNBUFFERED:   '1',
-          },
-        });
-
-        const stdoutDone = drainStream(proc.stdout, '',       push);
-        const stderrDone = drainStream(proc.stderr, '[ERR] ', push);
-
-        ;(async () => {
-          const code = await proc.exited;
-          await Promise.allSettled([stdoutDone, stderrDone]);
-
-          job.status = code === 0 ? 'done' : 'error';
-          job.stage  = code === 0 ? 'complete' : 'ready';
-          const final = code === 0
-            ? '=== RESEARCH COMPLETE ==='
-            : `=== RESEARCH ERROR (exit ${code}) — scroll up for details ===`;
-          notify(job, final, job.status);
-        })();
-
-        return Response.json({ ok: true });
       },
     },
 
@@ -447,14 +570,17 @@ const server = serve({
         codegenJobs.set(jobId, cgJob);
 
         const rootDir = resolve(import.meta.dir, '../..');
-        const gx10Url = process.env.LOCAL_LLM_URL ?? 'http://100.123.34.54:11434';
+        const gx10Url = process.env.LOCAL_LLM_URL ?? '';
         const proc = Bun.spawn({
           cmd: [
             'python3', resolve(rootDir, 'run_paper2code_single.py'),
             '--doi', doi, '--title', title, '--gx10-url', gx10Url,
           ],
           stdout: 'pipe', stderr: 'pipe', cwd: rootDir,
-          env: { ...process.env, LLM_BACKEND: 'gx10', LOCAL_LLM_URL: gx10Url, LOCAL_LLM_MODEL: 'gemma4:latest', PYTHONUNBUFFERED: '1' },
+          env: researchEnv({
+            LLM_BACKEND: gx10Url ? 'gx10' : 'offline',
+            LOCAL_LLM_URL: gx10Url,
+          }),
         });
 
         (async () => {

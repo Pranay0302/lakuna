@@ -1,8 +1,10 @@
 import sys
+import json
 from pathlib import Path
 
 from agentswarm import KeywordRetriever, Paper, PaperChunk, PaperExpertAgent, ResearchSwarmOrchestrator
 from agentswarm.research import _extract_file_replacements
+from agentswarm.zero_exa import ZeroSearchHit
 
 
 class StubLLM:
@@ -81,6 +83,23 @@ SCORE = 0.5
         return super().complete(messages)
 
 
+class MustNotRunLLM:
+    def complete(self, messages):
+        raise AssertionError("agents must not run when the baseline environment fails")
+
+
+class FakeZeroExa:
+    def search(self, query):
+        return [
+            ZeroSearchHit(
+                title="Live external evidence",
+                url="https://example.test/evidence",
+                text="A recent external result supports stronger feature mixing.",
+                score=0.9,
+            )
+        ]
+
+
 def test_research_swarm_runs_one_improvement_iteration(tmp_path):
     problem_dir = _write_toy_problem(tmp_path)
     papers = [_paper("attention"), _paper("og_attention"), _paper("introcnn")]
@@ -115,6 +134,58 @@ def test_research_swarm_runs_one_improvement_iteration(tmp_path):
     assert "SCORE = 0.6" in (problem_dir / "model.py").read_text()
     assert (tmp_path / "session" / "events.jsonl").exists()
     assert (tmp_path / "session" / "summary.json").exists()
+    events = [json.loads(line)["event"] for line in (tmp_path / "session" / "events.jsonl").read_text().splitlines()]
+    for required in (
+        "search_agent_start",
+        "search_agent_done",
+        "analysis_agent_start",
+        "analysis_agent_done",
+        "planning_agent_start",
+        "coding_agent_start",
+        "execution_agent_start",
+        "judge_agent_start",
+        "resolution_agent_done",
+        "session_done",
+    ):
+        assert required in events
+    assert session.outcome == "improved"
+
+
+def test_research_swarm_shares_one_zero_exa_search_across_experts(tmp_path):
+    problem_dir = _write_toy_problem(tmp_path)
+    papers = [_paper("attention"), _paper("introcnn")]
+    retriever = KeywordRetriever(papers)
+    llm = StubLLM()
+    agents = [PaperExpertAgent(paper, retriever, llm=llm) for paper in papers]
+    orchestrator = ResearchSwarmOrchestrator(
+        agents,
+        problem_dir=problem_dir,
+        command=[sys.executable, "train.py", "--metrics-out", "metrics.json"],
+        metrics_path="metrics.json",
+        editable_files=["model.py"],
+        planner_llm=llm,
+        coding_llm=llm,
+        problem_statement="Improve a weak classifier.",
+        metric_name="test_accuracy",
+        max_iterations=1,
+        max_agents=2,
+        max_cross_ideas=0,
+        zero_exa=FakeZeroExa(),
+        session_dir=tmp_path / "zero_session",
+    )
+
+    session = orchestrator.run(dry_run=True)
+
+    assert all(
+        any(item.paper_id == "zero:exa" for item in idea.evidence)
+        for idea in session.iterations[0].seed_ideas
+    )
+    events = [
+        json.loads(line)["event"]
+        for line in (tmp_path / "zero_session" / "events.jsonl").read_text().splitlines()
+    ]
+    assert events.count("zero_exa_search_start") == 1
+    assert events.count("zero_exa_search_done") == 1
 
 
 def test_research_swarm_accepts_common_loose_file_block_and_judges(tmp_path):
@@ -194,6 +265,35 @@ SCORE = 0.8
 """
 
     assert _extract_file_replacements(raw, fallback_files=["model.py"]) == {"model.py": "SCORE = 0.8"}
+
+
+def test_research_swarm_stops_before_agents_when_baseline_fails(tmp_path):
+    problem_dir = _write_toy_problem(tmp_path)
+    papers = [_paper("attention")]
+    retriever = KeywordRetriever(papers)
+    llm = MustNotRunLLM()
+    agents = [PaperExpertAgent(papers[0], retriever, llm=llm)]
+    orchestrator = ResearchSwarmOrchestrator(
+        agents,
+        problem_dir=problem_dir,
+        command=[sys.executable, "missing_train.py"],
+        metrics_path="metrics.json",
+        editable_files=["model.py"],
+        planner_llm=llm,
+        coding_llm=llm,
+        problem_statement="Broken environment.",
+        metric_name="test_accuracy",
+        max_iterations=3,
+        session_dir=tmp_path / "failed_session",
+    )
+
+    session = orchestrator.run()
+
+    assert session.outcome == "failed_baseline"
+    assert session.iterations == []
+    events = [json.loads(line)["event"] for line in (tmp_path / "failed_session" / "events.jsonl").read_text().splitlines()]
+    assert "baseline_failed" in events
+    assert "agents_selected" not in events
 
 
 def test_extract_file_replacements_does_not_guess_multi_file_fallback():

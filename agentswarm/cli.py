@@ -16,6 +16,7 @@ from .orchestrator import SwarmOrchestrator
 from .paper_loader import load_papers
 from .research import ResearchSwarmOrchestrator
 from .retriever import KeywordRetriever
+from .zero_exa import ZeroExaSearch
 
 _OUTPUTS_DIR = Path(__file__).parent.parent / "outputs"
 _DEFAULT_PAPERS = ["data/cleaned_json/bert_cleaned.json"]
@@ -210,6 +211,15 @@ def cmd_research(args: argparse.Namespace) -> int:
         min_delta=args.min_delta,
         revert_on_regression=not args.keep_regressions,
         session_dir=Path(args.session_dir).expanduser().resolve() if args.session_dir else None,
+        zero_exa=(
+            ZeroExaSearch(
+                max_results=args.zero_exa_max_results,
+                max_pay_usd=args.zero_exa_max_pay,
+                timeout_s=args.zero_exa_timeout,
+            )
+            if args.zero_exa
+            else None
+        ),
         logger=logger,
     )
     session = orchestrator.run(dry_run=args.dry_run)
@@ -232,7 +242,7 @@ def cmd_research(args: argparse.Namespace) -> int:
             f"- iteration {item.iteration}: decision={decision}, "
             f"{args.metric}={value}, changed={changed}{debug_note}"
         )
-    return 0
+    return 1 if session.outcome.startswith("failed_") else 0
 
 
 # ── entry point ───────────────────────────────────────────────────────────────
@@ -327,6 +337,29 @@ def main() -> int:
     p_research.add_argument("--coding-temperature", type=float, default=0.1)
     p_research.add_argument("--log-file", default=None)
     p_research.add_argument("--no-stream", action="store_true")
+    p_research.add_argument(
+        "--zero-exa",
+        action="store_true",
+        help="Use the paid Exa Search capability through Zero once per research iteration.",
+    )
+    p_research.add_argument(
+        "--zero-exa-max-results",
+        type=int,
+        default=4,
+        help="Maximum live Exa results shared with the paper agents (default: 4).",
+    )
+    p_research.add_argument(
+        "--zero-exa-max-pay",
+        type=float,
+        default=0.02,
+        help="Hard Zero payment cap in USD per Exa call (default: 0.02).",
+    )
+    p_research.add_argument(
+        "--zero-exa-timeout",
+        type=float,
+        default=60.0,
+        help="Timeout in seconds for each Zero command (default: 60).",
+    )
 
     args = parser.parse_args()
     if args.command == "discuss":

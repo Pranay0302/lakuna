@@ -14,6 +14,7 @@ from .log import SwarmLogger
 from .orchestrator import SwarmOrchestrator
 from .paper_loader import Paper, PaperChunk, load_paper, load_papers
 from .retriever import KeywordRetriever
+from .zero_exa import ZeroExaSearch, ZeroSearchHit, ZeroServiceError
 from .research import (
     CodingResult,
     DebuggingResult,
@@ -63,4 +64,7 @@ __all__ = [
     "Synthesis",
     "load_paper",
     "load_papers",
+    "ZeroExaSearch",
+    "ZeroSearchHit",
+    "ZeroServiceError",
 ]

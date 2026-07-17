@@ -12,7 +12,12 @@ from typing import Any
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Subset
-from torchvision import datasets, transforms
+
+try:
+    from torchvision import datasets, transforms
+except ModuleNotFoundError:  # pragma: no cover - depends on deployment image
+    datasets = None
+    transforms = None
 
 from model import TRAINING_CONFIG, build_model
 
@@ -96,22 +101,28 @@ def main() -> int:
 
 
 def _load_data(args: argparse.Namespace, config: dict[str, Any], seed: int) -> tuple[DataLoader, DataLoader]:
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
-    ])
     data_dir = Path(args.data_dir)
-    if args.dataset == "mnist":
-        train_data = datasets.MNIST(data_dir, train=True, download=args.download, transform=transform)
-        test_data = datasets.MNIST(data_dir, train=False, download=args.download, transform=transform)
+    train_size = int(args.limit_train if args.limit_train is not None else config.get("limit_train", 6000))
+    test_size = int(args.limit_test if args.limit_test is not None else config.get("limit_test", 1000))
+    if args.dataset == "fake":
+        train_data = _SyntheticDigitDataset(train_size, (1, 28, 28), 10, seed)
+        test_data = _SyntheticDigitDataset(test_size, (1, 28, 28), 10, seed + 1)
     else:
-        train_size = int(args.limit_train if args.limit_train is not None else config.get("limit_train", 6000))
-        test_size = int(args.limit_test if args.limit_test is not None else config.get("limit_test", 1000))
-        train_data = datasets.FakeData(size=train_size, image_size=(1, 28, 28), num_classes=10, transform=transform)
-        test_data = datasets.FakeData(size=test_size, image_size=(1, 28, 28), num_classes=10, transform=transform)
+        if datasets is None or transforms is None:
+            raise RuntimeError("torchvision is required for real MNIST; use --dataset fake for backend smoke tests.")
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ])
+        if args.dataset == "mnist":
+            train_data = datasets.MNIST(data_dir, train=True, download=args.download, transform=transform)
+            test_data = datasets.MNIST(data_dir, train=False, download=args.download, transform=transform)
+        else:
+            train_data = datasets.FakeData(size=train_size, image_size=(1, 28, 28), num_classes=10, transform=transform)
+            test_data = datasets.FakeData(size=test_size, image_size=(1, 28, 28), num_classes=10, transform=transform)
 
-    train_limit = int(args.limit_train if args.limit_train is not None else config.get("limit_train", 6000))
-    test_limit = int(args.limit_test if args.limit_test is not None else config.get("limit_test", 1000))
+    train_limit = train_size
+    test_limit = test_size
     train_data = _limited_subset(train_data, train_limit, seed)
     test_data = _limited_subset(test_data, test_limit, seed + 1)
 
@@ -121,6 +132,29 @@ def _load_data(args: argparse.Namespace, config: dict[str, Any], seed: int) -> t
         DataLoader(train_data, batch_size=batch_size, shuffle=True, generator=generator),
         DataLoader(test_data, batch_size=batch_size, shuffle=False),
     )
+
+
+class _SyntheticDigitDataset(torch.utils.data.Dataset):
+    def __init__(self, size: int, image_size: tuple[int, int, int], num_classes: int, seed: int) -> None:
+        generator = torch.Generator().manual_seed(seed)
+        channels, height, width = image_size
+        self.labels = torch.arange(size, dtype=torch.long) % num_classes
+        self.images = torch.zeros((size, channels, height, width), dtype=torch.float32)
+        for index, label_tensor in enumerate(self.labels):
+            label = int(label_tensor.item())
+            image = torch.zeros((channels, height, width), dtype=torch.float32)
+            column = 2 + (label * (width - 5)) // max(num_classes - 1, 1)
+            row = 2 + ((num_classes - 1 - label) * (height - 5)) // max(num_classes - 1, 1)
+            image[:, :, column:column + 2] = 0.8
+            image[:, row:row + 2, :] += 0.5
+            image += 0.06 * torch.randn(image.shape, generator=generator)
+            self.images[index] = image
+
+    def __len__(self) -> int:
+        return int(self.labels.numel())
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.images[idx], self.labels[idx]
 
 
 def _limited_subset(dataset, limit: int, seed: int):

@@ -6,16 +6,16 @@ from torch import nn
 
 MODEL_CONFIG = {
     "channels": [8, 16],
-    "dropout": 0.85,
+    "dropout": 0.80,
     "activation": "sigmoid",
     "use_batchnorm": False,
     "num_classes": 200,
 }
 
 TRAINING_CONFIG = {
-    "epochs": 1,
+    "epochs": 10,
     "batch_size": 32,
-    "learning_rate": 1e-5,
+    "learning_rate": 1e-4,
     "optimizer": "sgd",
     "weight_decay": 0.0,
     "momentum": 0.0,
@@ -23,6 +23,13 @@ TRAINING_CONFIG = {
     "limit_train": 5000,
     "limit_test": 1000,
     "image_size": 64,
+    "lr_scheduler": "none",
+}
+
+OPTIMIZER_CONFIG = {
+    "optimizer": "sgd",
+    "beta_1": 0.9,
+    "beta_2": 0.98,
 }
 
 

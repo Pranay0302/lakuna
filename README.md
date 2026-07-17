@@ -123,6 +123,38 @@ make codegen-local JSON=data/cleaned_json/bert_cleaned.json
 
 Generated repo lands in `outputs/<paper_name>_repo/`.
 
+### Optional: live Exa evidence through Zero
+
+The autonomous `research` command includes one [Zero](https://www.zero.xyz/)
+service: Exa semantic web search. When enabled, it makes one capped paid search
+per research iteration and shares the returned evidence across every selected
+paper expert. Local paper retrieval remains the fallback if Zero is unavailable.
+
+Install and authenticate the official runner once:
+
+```bash
+npm install -g @zeroxyz/cli
+zero auth login
+zero auth whoami
+```
+
+Then opt in explicitly (no Zero call or payment occurs without `--zero-exa`):
+
+```bash
+python3 run.py research research_problems/mnist_fcnn \
+  --run-command "python3 train.py --metrics-out logs/latest_metrics.json" \
+  --zero-exa \
+  --zero-exa-max-results 4 \
+  --zero-exa-max-pay 0.02
+```
+
+The visualizer uses the same integration when `ZERO_EXA_ENABLED=true`. Optional
+controls are `ZERO_EXA_MAX_RESULTS`, `ZERO_EXA_MAX_PAY_USD`, and
+`ZERO_EXA_TIMEOUT_SECONDS`. Keep `ZERO_SESSION_TOKEN` and all other credentials
+out of `deploy.yaml` and source control; inject them only through your runtime's
+secret/environment configuration. Zero discovery and inspection are repeated
+before each call, and `--zero-exa-max-pay` is a hard per-call spend cap.
+
 ---
 
 ## Command reference

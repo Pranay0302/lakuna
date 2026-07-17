@@ -13,7 +13,12 @@ from typing import Any
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Subset
-from torchvision import datasets, transforms
+
+try:
+    from torchvision import datasets, transforms
+except ModuleNotFoundError:  # pragma: no cover - depends on deployment image
+    datasets = None
+    transforms = None
 
 from model import TRAINING_CONFIG, build_model
 
@@ -113,28 +118,46 @@ def main() -> int:
 
 def _load_data(args: argparse.Namespace, config: dict[str, Any], seed: int) -> tuple[DataLoader, DataLoader]:
     image_size = int(args.image_size if args.image_size is not None else config.get("image_size", 64))
-    normalize = transforms.Normalize(mean=_TINY_MEAN, std=_TINY_STD)
-
-    train_transform = transforms.Compose([
-        transforms.RandomCrop(image_size, padding=8),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-    val_transform = transforms.Compose([
-        transforms.ToTensor(),
-        normalize,
-    ])
-
     train_limit = int(args.limit_train if args.limit_train is not None else config.get("limit_train", 5000))
     test_limit = int(args.limit_test if args.limit_test is not None else config.get("limit_test", 1000))
 
     if args.dataset == "tinyimagenet":
+        if datasets is None or transforms is None:
+            raise RuntimeError("torchvision is required for Tiny-ImageNet; use --dataset fake for backend smoke tests.")
+        normalize = transforms.Normalize(mean=_TINY_MEAN, std=_TINY_STD)
+        train_transform = transforms.Compose([
+            transforms.RandomCrop(image_size, padding=8),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        val_transform = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
         root = Path(args.data_dir) / TINY_IMAGENET_DIR
         _ensure_val_reorganized(root)
         train_data = datasets.ImageFolder(str(root / "train"), transform=train_transform)
         test_data = datasets.ImageFolder(str(root / "val"), transform=val_transform)
+    elif args.dataset == "fake":
+        # A deterministic, learnable proxy benchmark. Random images paired with
+        # random labels make every autonomous change indistinguishable and can
+        # legitimately report 0.0 accuracy; this dataset preserves a real
+        # train/test split while giving each class a repeatable visual signal.
+        train_data = _SyntheticImageDataset(train_limit, (3, image_size, image_size), 10, seed)
+        test_data = _SyntheticImageDataset(test_limit, (3, image_size, image_size), 10, seed + 1)
     else:
+        normalize = transforms.Normalize(mean=_TINY_MEAN, std=_TINY_STD)
+        train_transform = transforms.Compose([
+            transforms.RandomCrop(image_size, padding=8),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        val_transform = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
         train_data = datasets.FakeData(
             size=train_limit, image_size=(3, image_size, image_size),
             num_classes=200, transform=train_transform,
@@ -151,10 +174,33 @@ def _load_data(args: argparse.Namespace, config: dict[str, Any], seed: int) -> t
     generator = torch.Generator().manual_seed(seed)
     return (
         DataLoader(train_data, batch_size=batch_size, shuffle=True, generator=generator,
-                   num_workers=4, pin_memory=True),
+                   num_workers=0, pin_memory=False),
         DataLoader(test_data, batch_size=batch_size, shuffle=False,
-                   num_workers=4, pin_memory=True),
+                   num_workers=0, pin_memory=False),
     )
+
+
+class _SyntheticImageDataset(torch.utils.data.Dataset):
+    def __init__(self, size: int, image_size: tuple[int, int, int], num_classes: int, seed: int) -> None:
+        generator = torch.Generator().manual_seed(seed)
+        channels, height, width = image_size
+        self.labels = torch.arange(size, dtype=torch.long) % num_classes
+        self.images = torch.empty((size, channels, height, width), dtype=torch.float32)
+        for index, label_tensor in enumerate(self.labels):
+            label = int(label_tensor.item())
+            image = torch.full((channels, height, width), -0.8 + 1.6 * label / max(num_classes - 1, 1))
+            stripe = max(2, width // 12)
+            start = (label * max(1, width - stripe)) // max(num_classes - 1, 1)
+            image[label % channels, :, start:start + stripe] += 1.2
+            image[(label + 1) % channels, start:start + stripe, :] += 0.6
+            image += 0.08 * torch.randn(image.shape, generator=generator)
+            self.images[index] = image
+
+    def __len__(self) -> int:
+        return int(self.labels.numel())
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.images[idx], self.labels[idx]
 
 
 def _ensure_val_reorganized(root: Path) -> None:

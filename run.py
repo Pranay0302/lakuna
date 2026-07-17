@@ -151,6 +151,13 @@ def cmd_research(args: argparse.Namespace) -> int:
         argv += ["--log-file", args.log_file]
     if args.no_stream:
         argv.append("--no-stream")
+    if args.zero_exa:
+        argv += [
+            "--zero-exa",
+            "--zero-exa-max-results", str(args.zero_exa_max_results),
+            "--zero-exa-max-pay", str(args.zero_exa_max_pay),
+            "--zero-exa-timeout", str(args.zero_exa_timeout),
+        ]
 
     sys.argv = argv
     return swarm_main()
@@ -317,6 +324,14 @@ def main() -> int:
     p_research.add_argument("--max-debug-attempts", type=int, default=2)
     p_research.add_argument("--log-file", default=None)
     p_research.add_argument("--no-stream", action="store_true")
+    p_research.add_argument(
+        "--zero-exa",
+        action="store_true",
+        help="Add paid live Exa evidence through Zero (one capped call per iteration)",
+    )
+    p_research.add_argument("--zero-exa-max-results", type=int, default=4)
+    p_research.add_argument("--zero-exa-max-pay", type=float, default=0.02)
+    p_research.add_argument("--zero-exa-timeout", type=float, default=60.0)
 
     # ── codegen ───────────────────────────────────────────────────────────────
     p_codegen = sub.add_parser("codegen", help="Generate code repo from a cleaned JSON paper")

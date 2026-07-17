@@ -1,0 +1,58 @@
+[
+  {
+    "title": "Gender-From-Iris or Gender-From-Mascara?",
+    "doi": "1702.01304",
+    "year": 2017,
+    "citation_count": 4,
+    "abstract": "Predicting a person's gender based on the iris texture has been explored by several researchers. This paper considers several dimensions of experimental work on this problem, including person-disjoint train and test, and the effect of cosmetics on eyelash occlusion and imperfect segmentation. We also consider the use of multi-layer perceptron and convolutional neural networks as classifiers, comparing the use of data-driven and hand-crafted features. Our results suggest that the gender-from-iris problem is more difficult than has so far been appreciated. Estimating accuracy using a mean of N person-disjoint train and test partitions, and considering the effect of makeup - a combination of experimental conditions not present in any previous work - we find a much weaker ability to predict gender-from-iris texture than has been suggested in previous work."
+  },
+  {
+    "title": "Gender Classification from Iris Texture Images Using a New Set of Binary\n  Statistical Image Features",
+    "doi": "1905.00372",
+    "year": 2019,
+    "citation_count": 2,
+    "abstract": "Soft biometric information such as gender can contribute to many applications like as identification and security. This paper explores the use of a Binary Statistical Features (BSIF) algorithm for classifying gender from iris texture images captured with NIR sensors. It uses the same pipeline for iris recognition systems consisting of iris segmentation, normalisation and then classification. Experiments show that applying BSIF is not straightforward since it can create artificial textures causing misclassification. In order to overcome this limitation, a new set of filters was trained from eye images and different sized filters with padding bands were tested on a subject-disjoint database. A Modified-BSIF (MBSIF) method was implemented. The latter achieved better gender classification results (94.6\\% and 91.33\\% for the left and right eye respectively). These results are competitive with the state of the art in gender classification. In an additional contribution, a novel gender labelled database was created and it will be available upon request."
+  },
+  {
+    "title": "Improving Iris Recognition Accuracy By Score Based Fusion Method",
+    "doi": "1007.0412",
+    "year": 2010,
+    "citation_count": 3,
+    "abstract": "Iris recognition technology, used to identify individuals by photographing the iris of their eye, has become popular in security applications because of its ease of use, accuracy, and safety in controlling access to high-security areas. Fusion of multiple algorithms for biometric verification performance improvement has received considerable attention. The proposed method combines the zero-crossing 1 D wavelet Euler number, and genetic algorithm based for feature extraction. The output from these three algorithms is normalized and their score are fused to decide whether the user is genuine or imposter. This new strategies is discussed in this paper, in order to compute a multimodal combined score."
+  },
+  {
+    "title": "Super-Resolution for Selfie Biometrics: Introduction and Application to\n  Face and Iris",
+    "doi": "2204.05688",
+    "year": 2022,
+    "citation_count": 0,
+    "abstract": "The lack of resolution has a negative impact on the performance of image-based biometrics. Many applications which are becoming ubiquitous in mobile devices do not operate in a controlled environment, and their performance significantly drops due to the lack of pixel resolution. While many generic super-resolution techniques have been studied to restore low-resolution images for biometrics, the results obtained are not always as desired. Those generic methods are usually aimed to enhance the visual appearance of the scene. However, producing an overall visual enhancement of biometric images does not necessarily correlate with a better recognition performance. Such techniques are designed to restore generic images and therefore do not exploit the specific structure found in biometric images (e.g. iris or faces), which causes the solution to be sub-optimal. For this reason, super-resolution techniques have to be adapted for the particularities of images from a specific biometric modality. In recent years, there has been an increased interest in the application of super-resolution to different biometric modalities, such as face iris, gait or fingerprint. This chapter presents an overview of recent advances in super-resolution reconstruction of face and iris images, which are the two prevalent modalities in selfie biometrics. We also provide experimental results using several state-of-the-art reconstruction algorithms, demonstrating the benefits of using super-resolution to improve the quality of face and iris images prior to classification. In the reported experiments, we study the application of super-resolution to face and iris images captured in the visible range, using experimental setups that represent well the selfie biometrics scenario."
+  },
+  {
+    "title": "Deep Learning for Diagonal Earlobe Crease Detection",
+    "doi": "2210.11582",
+    "year": 2022,
+    "citation_count": 0,
+    "abstract": "An article published on Medical News Today in June 2022 presented a fundamental question in its title: Can an earlobe crease predict heart attacks? The author explained that end arteries supply the heart and ears. In other words, if they lose blood supply, no other arteries can take over, resulting in tissue damage. Consequently, some earlobes have a diagonal crease, line, or deep fold that resembles a wrinkle. In this paper, we take a step toward detecting this specific marker, commonly known as DELC or Frank's Sign. For this reason, we have made the first DELC dataset available to the public. In addition, we have investigated the performance of numerous cutting-edge backbones on annotated photos. Experimentally, we demonstrate that it is possible to solve this challenge by combining pre-trained encoders with a customized classifier to achieve 97.7% accuracy. Moreover, we have analyzed the backbone trade-off between performance and size, estimating MobileNet as the most promising encoder."
+  },
+  {
+    "title": "On Demographic Bias in Fingerprint Recognition",
+    "doi": "2205.09318",
+    "year": 2022,
+    "citation_count": 0,
+    "abstract": "Fingerprint recognition systems have been deployed globally in numerous applications including personal devices, forensics, law enforcement, banking, and national identity systems. For these systems to be socially acceptable and trustworthy, it is critical that they perform equally well across different demographic groups. In this work, we propose a formal statistical framework to test for the existence of bias (demographic differentials) in fingerprint recognition across four major demographic groups (white male, white female, black male, and black female) for two state-of-the-art (SOTA) fingerprint matchers operating in verification and identification modes. Experiments on two different fingerprint databases (with 15,468 and 1,014 subjects) show that demographic differentials in SOTA fingerprint recognition systems decrease as the matcher accuracy increases and any small bias that may be evident is likely due to certain outlier, low-quality fingerprint images."
+  },
+  {
+    "title": "Not Color Blind: AI Predicts Racial Identity from Black and White\n  Retinal Vessel Segmentations",
+    "doi": "2109.13845",
+    "year": 2021,
+    "citation_count": 4,
+    "abstract": "Background: Artificial intelligence (AI) may demonstrate racial bias when skin or choroidal pigmentation is present in medical images. Recent studies have shown that convolutional neural networks (CNNs) can predict race from images that were not previously thought to contain race-specific features. We evaluate whether grayscale retinal vessel maps (RVMs) of patients screened for retinopathy of prematurity (ROP) contain race-specific features. Methods: 4095 retinal fundus images (RFIs) were collected from 245 Black and White infants. A U-Net generated RVMs from RFIs, which were subsequently thresholded, binarized, or skeletonized. To determine whether RVM differences between Black and White eyes were physiological, CNNs were trained to predict race from color RFIs, raw RVMs, and thresholded, binarized, or skeletonized RVMs. Area under the precision-recall curve (AUC-PR) was evaluated. Findings: CNNs predicted race from RFIs near perfectly (image-level AUC-PR: 0.999, subject-level AUC-PR: 1.000). Raw RVMs were almost as informative as color RFIs (image-level AUC-PR: 0.938, subject-level AUC-PR: 0.995). Ultimately, CNNs were able to detect whether RFIs or RVMs were from Black or White babies, regardless of whether images contained color, vessel segmentation brightness differences were nullified, or vessel segmentation widths were normalized. Interpretation: AI can detect race from grayscale RVMs that were not thought to contain racial information. Two potential explanations for these findings are that: retinal vessels physiologically differ between Black and White babies or the U-Net segments the retinal vasculature differently for various fundus pigmentations. Either way, the implications remain the same: AI algorithms have potential to demonstrate racial bias in practice, even when preliminary attempts to remove such information from the underlying images appear to be successful."
+  },
+  {
+    "title": "Sex-Prediction from Periocular Images across Multiple Sensors and\n  Spectra",
+    "doi": "1905.00396",
+    "year": 2019,
+    "citation_count": 0,
+    "abstract": "In this paper, we provide a comprehensive analysis of periocular-based sex-prediction (commonly referred to as gender classification) using state-of-the-art machine learning techniques. In order to reflect a more challenging scenario where periocular images are likely to be obtained from an unknown source, i.e. sensor, convolutional neural networks are trained on fused sets composed of several near-infrared (NIR) and visible wavelength (VW) image databases. In a cross-sensor scenario within each spectrum an average classification accuracy of approximately 85\\% is achieved. When sex-prediction is performed across spectra an average classification accuracy of about 82\\% is obtained. Finally, a multi-spectral sex-prediction yields a classification accuracy of 83\\% on average. Compared to proposed works, obtained results provide a more realistic estimation of the feasibility to predict a subject's sex from the periocular region."
+  }
+]
