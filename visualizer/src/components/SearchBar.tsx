@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useId, useRef } from 'react';
 import type { ProcessedPaper } from '../types';
 
 interface SearchBarProps {
@@ -12,7 +12,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   papers,
   onResults,
   disabled,
-  darkMode,
 }) => {
   const [query,     setQuery]     = useState('');
   const [results,   setResults]   = useState<ProcessedPaper[]>([]);
@@ -21,7 +20,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const inputRef    = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const dm = darkMode;
+  const listboxId = useId();
 
   const search = useCallback((q: string) => {
     if (!q.trim()) {
@@ -85,15 +84,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     inputRef.current?.focus();
   };
 
-  const bg     = dm ? 'rgba(18,20,28,0.92)'    : 'rgba(255,255,255,0.92)';
-  const border = dm ? 'rgba(255,255,255,0.10)'  : 'rgba(0,0,0,0.1)';
-  const shadow = dm ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.08)';
-  const iconC  = dm ? '#4b5563' : '#94a3b8';
-  const textC  = dm ? '#e2e8f0' : '#374151';
-  const phC    = dm ? '#374151' : '#9ca3af';
-
   return (
-    <div className="relative" style={{ width: 340 }}>
+    <div className="relative" style={{ width: 'min(340px, calc(100vw - 32px))', maxWidth: '100%' }}>
       {/* Input row */}
       <div
         style={{
@@ -101,17 +93,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           alignItems: 'center',
           gap: 8,
           padding: '0 12px',
-          background: bg,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: `1px solid ${border}`,
-          borderRadius: open ? '10px 10px 0 0' : 10,
+          background: 'var(--surface-raised)',
+          border: '1px solid var(--border-default)',
+          borderRadius: open ? 'var(--radius-md) var(--radius-md) 0 0' : 'var(--radius-md)',
           height: 42,
-          boxShadow: shadow,
-          transition: 'border-radius 0.1s, background 0.3s',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'border-radius var(--duration-fast) var(--ease-standard), background var(--duration-normal) var(--ease-standard)',
         }}
       >
-        <svg width="16" height="16" fill="none" stroke={iconC} strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+        <svg aria-hidden="true" width="16" height="16" fill="none" stroke="var(--text-muted)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
           <circle cx="11" cy="11" r="8"/>
           <path d="m21 21-4.35-4.35"/>
         </svg>
@@ -124,31 +114,36 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Search papers by title…"
           disabled={disabled}
+          role="combobox"
+          aria-label="Search papers by title"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={open && results[activeIdx] ? `${listboxId}-option-${activeIdx}` : undefined}
           style={{
             flex: 1,
-            outline: 'none',
             background: 'transparent',
             border: 'none',
             fontSize: 14,
-            fontFamily: "'Crimson Pro', Georgia, serif",
-            color: textC,
-            caretColor: dm ? '#6366f1' : '#4F6EF7',
+            color: 'var(--text-primary)',
+            caretColor: 'var(--accent)',
+            minWidth: 0,
           }}
         />
-        {/* Placeholder colour via CSS custom property trick isn't possible inline,
-            but we add a global rule via a <style> tag below */}
         {query && (
           <button
+            type="button"
             onClick={handleClear}
+            aria-label="Clear paper search"
             style={{
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              color: dm ? '#374151' : '#d1d5db',
+              color: 'var(--text-muted)',
               flexShrink: 0,
-              padding: 0,
+              padding: 4,
               display: 'flex',
-              transition: 'color 0.15s',
+              borderRadius: 'var(--radius-sm)',
             }}
           >
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -161,18 +156,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {/* Dropdown */}
       {open && (
         <div
+          id={listboxId}
+          role="listbox"
+          aria-label="Paper search results"
           style={{
             position: 'absolute',
             top: '100%',
             left: 0,
             right: 0,
-            background: dm ? 'rgba(18,20,28,0.97)' : 'rgba(255,255,255,0.97)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: `1px solid ${border}`,
-            borderTop: `1px solid ${dm ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'}`,
-            borderRadius: '0 0 10px 10px',
-            boxShadow: dm ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.1)',
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border-default)',
+            borderTop: '1px solid var(--border-subtle)',
+            borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+            boxShadow: 'var(--shadow-md)',
             zIndex: 100,
             overflow: 'hidden',
           }}
@@ -180,6 +176,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           {results.map((p, i) => (
             <button
               key={p.id}
+              id={`${listboxId}-option-${i}`}
+              type="button"
+              role="option"
+              aria-selected={i === activeIdx}
               onClick={() => handleSelect(p)}
               style={{
                 display: 'block',
@@ -187,11 +187,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 textAlign: 'left',
                 padding: '10px 12px',
                 background: i === activeIdx
-                  ? dm ? 'rgba(99,102,241,0.12)' : 'rgba(79,110,247,0.06)'
+                  ? 'var(--accent-soft)'
                   : 'transparent',
                 border: 'none',
                 borderBottom: i < results.length - 1
-                  ? `1px solid ${dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`
+                  ? '1px solid var(--border-subtle)'
                   : 'none',
                 cursor: 'pointer',
                 transition: 'background 0.1s',
@@ -199,9 +199,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             >
               <p
                 style={{
-                  fontFamily: "'Crimson Pro', Georgia, serif",
                   fontSize: 13,
-                  color: dm ? '#e2e8f0' : '#374151',
+                  color: 'var(--text-primary)',
                   margin: 0,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -214,7 +213,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 <p
                   style={{
                     fontSize: 10,
-                    color: dm ? '#4b5563' : '#9ca3af',
+                    color: 'var(--text-muted)',
                     margin: '2px 0 0',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

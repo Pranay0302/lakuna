@@ -163,16 +163,16 @@ export function useWebGLRenderer(
       dimFactor: 1.0,
     };
 
-    // Cross-pollination mode: dim all non-gold papers, render gold papers in gold
+    // Cross-pollination mode: dim other papers and highlight the active set.
     if (crossPollinationActive && goldDois && goldDois.size > 0) {
       const n = options.papers.length;
       const newColors = new Float32Array(n * 4);
       for (let i = 0; i < n; i++) {
         const p = options.papers[i];
         if (goldDois.has(p.id)) {
-          newColors[i * 4]     = 1.0;   // gold #FFD700
-          newColors[i * 4 + 1] = 0.84;
-          newColors[i * 4 + 2] = 0.0;
+          newColors[i * 4]     = 0.80;
+          newColors[i * 4 + 1] = 0.47;
+          newColors[i * 4 + 2] = 0.36;
           newColors[i * 4 + 3] = 0.95;
         } else {
           newColors[i * 4]     = 0.22;  // desaturated grey
@@ -207,8 +207,7 @@ export function useWebGLRenderer(
         newColors[i * 4] = r;
         newColors[i * 4 + 1] = g;
         newColors[i * 4 + 2] = b;
-        // Dimmed points go nearly invisible in dark mode so highlights pop
-        newColors[i * 4 + 3] = isHighlighted ? 0.9 : darkMode ? 0.0 : 0.08;
+        newColors[i * 4 + 3] = isHighlighted ? 0.9 : darkMode ? 0.1 : 0.12;
       }
 
       const tempBuf = regl.buffer(newColors);

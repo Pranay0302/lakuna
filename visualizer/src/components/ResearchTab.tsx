@@ -16,12 +16,12 @@ interface LogLine {
 }
 
 const LINE_COLORS = {
-  phase:    '#818cf8',
-  success:  '#4ade80',
-  warning:  '#fbbf24',
-  error:    '#f87171',
-  stderr:   '#f59e0b',
-  default:  '#a8b4c8',
+  phase:    'var(--info)',
+  success:  'var(--success)',
+  warning:  'var(--warning)',
+  error:    'var(--danger)',
+  stderr:   'var(--warning)',
+  default:  'var(--text-secondary)',
 };
 
 function lineColor(msg: string): string {
@@ -34,10 +34,10 @@ function lineColor(msg: string): string {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  connecting: '#94a3b8',
-  running:    '#22d3ee',
-  done:       '#4ade80',
-  error:      '#f87171',
+  connecting: 'var(--text-muted)',
+  running:    'var(--info)',
+  done:       'var(--success)',
+  error:      'var(--danger)',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -180,7 +180,8 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
         flex:           1,
         display:        'flex',
         flexDirection:  'column',
-        background:     '#0a0c10',
+        background:     'var(--background)',
+        color:          'var(--text-primary)',
         overflow:       'hidden',
         height:         '100%',
       }}
@@ -189,12 +190,12 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
       <div
         style={{
           padding:      '10px 18px',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid var(--border-subtle)',
           display:      'flex',
           alignItems:   'center',
           gap:          12,
           flexShrink:   0,
-          background:   '#0d0f14',
+          background:   'var(--surface)',
         }}
       >
         <div
@@ -204,18 +205,18 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
             borderRadius: '50%',
             background:   dotColor,
             flexShrink:   0,
-            boxShadow:    `0 0 10px ${dotColor}`,
             animation:    status === 'running' ? 'rtPulse 1.5s ease-in-out infinite' : undefined,
           }}
+          role="status"
+          aria-label={STATUS_LABEL[status]}
         />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontFamily: "'Crimson Pro', Georgia, serif",
               fontSize:   15,
               fontWeight: 600,
-              color:      '#e2e8f0',
+              color:      'var(--text-primary)',
               overflow:   'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -225,7 +226,6 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
           </div>
           <div
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
               fontSize:   10,
               color:      dotColor,
               marginTop:  2,
@@ -239,15 +239,15 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
         <button
           onClick={() => { autoScroll.current = true; scrollToBottom(); }}
           title="Scroll to bottom"
+          aria-label="Scroll research log to bottom"
           style={{
-            background: 'rgba(255,255,255,0.07)',
-            border:     '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 6,
-            color:      '#6b7280',
+            background: 'var(--surface-subtle)',
+            border:     '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+            color:      'var(--text-secondary)',
             fontSize:   14,
             cursor:     'pointer',
             padding:    '3px 8px',
-            fontFamily: "'JetBrains Mono', monospace",
           }}
         >
           ↓
@@ -255,25 +255,26 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
       </div>
 
       {/* ── Main content area ───────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: isSwarm ? 'row' : 'column', overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: isSwarm ? 'row' : 'column', flexWrap: isSwarm ? 'wrap' : 'nowrap', overflow: 'auto', minHeight: 0 }}>
 
         {/* Terminal log (left panel or full width) */}
         <div
           ref={containerRef}
           onScroll={handleScroll}
           style={{
-            flex:       isSwarm ? '0 0 38%' : 1,
+            flex:       isSwarm ? '1 1 22rem' : 1,
+            minWidth:   0,
             overflowY:  'auto',
             padding:    '10px 16px 20px',
             fontFamily: "'JetBrains Mono', monospace",
             fontSize:   12,
             lineHeight: 1.75,
-            color:      '#a8b4c8',
-            borderRight: isSwarm ? '1px solid rgba(255,255,255,0.06)' : 'none',
+            color:      'var(--text-secondary)',
+            borderRight: isSwarm ? '1px solid var(--border-subtle)' : 'none',
           }}
         >
           {lines.length === 0 && status === 'connecting' && (
-            <div style={{ color: '#374151', fontStyle: 'italic' }}>
+            <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
               Waiting for stream…
             </div>
           )}
@@ -294,7 +295,7 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
         {status === 'running' && (
           <div
             style={{
-              color:         '#22d3ee',
+              color:         'var(--info)',
               marginTop:     4,
               display:       'inline-block',
               animation:     'rtBlink 1s step-end infinite',
@@ -309,10 +310,10 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
             style={{
               marginTop:  12,
               padding:    '8px 12px',
-              border:     '1px solid rgba(74,222,128,0.25)',
-              borderRadius: 6,
-              color:      '#4ade80',
-              background: 'rgba(74,222,128,0.05)',
+              border:     '1px solid var(--success)',
+              borderRadius: 'var(--radius-sm)',
+              color:      'var(--success)',
+              background: 'var(--success-soft)',
               fontSize:   11,
             }}
           >
@@ -325,10 +326,10 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
             style={{
               marginTop:    12,
               padding:      '10px 12px',
-              border:       '1px solid rgba(248,113,113,0.35)',
-              borderRadius: 6,
-              color:        '#f87171',
-              background:   'rgba(248,113,113,0.07)',
+              border:       '1px solid var(--danger)',
+              borderRadius: 'var(--radius-sm)',
+              color:        'var(--danger)',
+              background:   'var(--danger-soft)',
               fontSize:     11,
             }}
           >
@@ -338,7 +339,7 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
             <div style={{
               fontFamily:  "'JetBrains Mono', monospace",
               fontSize:    10,
-              color:       '#fca5a5',
+              color:       'var(--danger)',
               lineHeight:  1.7,
               whiteSpace:  'pre-wrap',
               wordBreak:   'break-all',
@@ -357,18 +358,16 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
 
         {/* SwarmViewer — right panel, only for the MNIST swarm void */}
         {isSwarm && (
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          <div style={{ flex: '1 1 32rem', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
             <div style={{
               padding:      '6px 12px',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background:   '#0d0f14',
-              fontFamily:   "'JetBrains Mono', monospace",
+              borderBottom: '1px solid var(--border-subtle)',
+              background:   'var(--surface)',
               fontSize:     9,
-              color:        '#a78bfa',
-              letterSpacing: '0.06em',
+              color:        'var(--text-secondary)',
               flexShrink:   0,
             }}>
-              AGENT SWARM · {swarmLines.length} log entries
+              Agent swarm · {swarmLines.length} log entries
             </div>
             <SwarmViewer lines={swarmLines} />
           </div>
@@ -379,49 +378,45 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
       {jobStage !== 'ingesting' && (
         <div style={{
           flexShrink:   0,
-          borderTop:    '1px solid rgba(255,255,255,0.07)',
+          borderTop:    '1px solid var(--border-subtle)',
           padding:      '12px 16px',
           display:      'flex',
           justifyContent: 'center',
-          background:   '#0d0f14',
+          background:   'var(--surface)',
         }}>
           {jobStage === 'ready' && (
             <button
               onClick={handleStartResearch}
               disabled={launching}
               style={{
-                background:    'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                color:         'white',
+                background:    'var(--accent)',
+                color:         'var(--accent-foreground)',
                 border:        'none',
-                borderRadius:  10,
+                borderRadius:  'var(--radius-md)',
                 padding:       '10px 36px',
                 fontSize:      13,
-                fontFamily:    "'JetBrains Mono', monospace",
                 fontWeight:    700,
                 cursor:        launching ? 'wait' : 'pointer',
-                boxShadow:     '0 4px 24px rgba(124,58,237,0.5)',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
+                boxShadow:     'var(--shadow-sm)',
                 display:       'flex',
                 alignItems:    'center',
                 gap:           10,
               }}
             >
-              <span style={{ fontSize: 16 }}>🔬</span>
               {launching ? 'Launching…' : 'Research'}
             </button>
           )}
 
           {jobStage === 'researching' && (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#a78bfa', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a78bfa', display: 'inline-block', animation: 'rtPulse 1.5s ease-in-out infinite' }} />
+            <div style={{ fontSize: 11, color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--info)', display: 'inline-block', animation: 'rtPulse 1.5s ease-in-out infinite' }} />
               Agent swarm running…
             </div>
           )}
 
           {jobStage === 'complete' && (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>✓</span> Research complete
+            <div style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              Research complete
             </div>
           )}
         </div>

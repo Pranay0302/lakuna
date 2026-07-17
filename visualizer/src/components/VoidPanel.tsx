@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import type { Void, SelectedPaper } from '../hooks/useVoidData';
+import type { Void } from '../hooks/useVoidData';
 
 interface VoidPanelProps {
   voids:          Void[];
@@ -14,8 +14,8 @@ interface VoidPanelProps {
 }
 
 const PANEL_W = 310;
-const mono  = "'JetBrains Mono', monospace";
-const serif = "'Crimson Pro', Georgia, serif";
+const mono  = 'inherit';
+const serif = 'inherit';
 
 function emptinessOf(v: Void): number {
   return Math.min(1, Math.max(0, v.empty_radius / 0.35));
@@ -35,18 +35,18 @@ const SectorCompass: React.FC<{
 
   return (
     <svg width={24} height={24} viewBox="-12 -12 24 24" style={{ flexShrink: 0, display: 'block' }}>
-      <circle r={10} fill="none" stroke="#fbbf24" strokeWidth={0.8} opacity={dim ? 0.3 : 0.55} />
+      <circle r={10} fill="none" stroke="var(--accent)" strokeWidth={0.8} opacity={dim ? 0.3 : 0.55} />
       {Array.from({ length: 8 }, (_, i) => {
         const a  = (i * Math.PI) / 4;
         const x1 = Math.sin(a) * 7.5;
         const y1 = -Math.cos(a) * 7.5;
         const x2 = Math.sin(a) * 10;
         const y2 = -Math.cos(a) * 10;
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#fbbf24" strokeWidth={0.6} opacity={0.35} />;
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--accent)" strokeWidth={0.6} opacity={0.35} />;
       })}
-      <line x1={0} y1={0} x2={nx} y2={ny} stroke="#d97706" strokeWidth={1.6} strokeLinecap="round" opacity={op} />
-      <circle r={2} fill="#fbbf24" opacity={op} />
-      <text x={0} y={14} textAnchor="middle" fontFamily={mono} fontSize={6} fill="#a16207" opacity={op}>
+      <line x1={0} y1={0} x2={nx} y2={ny} stroke="var(--accent)" strokeWidth={1.6} strokeLinecap="round" opacity={op} />
+      <circle r={2} fill="var(--accent)" opacity={op} />
+      <text x={0} y={14} textAnchor="middle" fontFamily={mono} fontSize={6} fill="var(--text-muted)" opacity={op}>
         S{sector}
       </text>
     </svg>
@@ -64,56 +64,54 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
   onSelectVoid,
   onToggleLabels,
   onToggleVoids,
-  darkMode,
 }) => {
   const [panelOpen, setPanelOpen] = useState(false);
 
-  const dm           = darkMode;
   const selectedVoid = voids.find(v => v.void_id === selectedVoidId) ?? null;
 
   // ── Derived theme tokens ─────────────────────────────────────────────────
-  const panelBg     = dm ? 'rgba(13,15,20,0.95)'    : 'rgba(255,255,255,0.94)';
-  const panelBorder = dm ? 'rgba(255,255,255,0.06)'  : 'rgba(0,0,0,0.07)';
-  const panelShadow = dm ? '4px 0 24px rgba(0,0,0,0.6)' : '4px 0 24px rgba(0,0,0,0.07)';
-  const tabBg       = dm ? 'rgba(13,15,20,0.92)'    : 'rgba(255,255,255,0.92)';
-  const tabBorder   = dm ? 'rgba(255,255,255,0.06)'  : 'rgba(0,0,0,0.08)';
-  const headingC    = dm ? '#e2e8f0' : '#1c1917';
-  const subC        = dm ? '#a16207' : '#a16207';  // kept amber in both modes
-  const divider     = dm ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const controlBorder = dm ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-  const labelCtrlC  = dm ? '#a8a29e' : '#78716c';
-  const rankBadgeC  = dm ? '#57534e' : '#a8a29e';
-  const voidNameSel = dm ? '#fbbf24' : '#92400e';
-  const voidNameDef = dm ? '#d4cfc9' : '#292524';
-  const emptyBarBg  = dm ? 'rgba(251,191,36,0.12)' : '#fef3c7';
-  const selHeaderBg = dm ? 'rgba(20,18,10,0.97)'   : 'rgba(255,251,235,0.97)';
-  const selHeaderBC = dm ? 'rgba(251,191,36,0.15)'  : 'rgba(251,191,36,0.2)';
-  const selHeaderC  = dm ? '#b45309' : '#a16207';
-  const selHeaderSC = dm ? '#c4924a' : '#c4924a';
-  const metaBlockC  = dm ? '#e2e8f0' : '#92400e';
-  const reasoningC  = dm ? '#a8a29e' : '#57534e';
-  const metaC       = dm ? '#6b7280' : '#a8a29e';
-  const cardBg0     = dm ? 'rgba(25,22,12,0.85)'   : 'rgba(255,251,235,0.85)';
-  const cardBg1     = dm ? 'rgba(18,20,26,0.60)'   : 'rgba(255,255,255,0.6)';
-  const cardBorder0 = dm ? 'rgba(251,191,36,0.5)'  : 'rgba(251,191,36,0.6)';
-  const cardBorder1 = dm ? 'rgba(255,255,255,0.06)': 'rgba(0,0,0,0.07)';
-  const cardTitleC  = dm ? '#e2e8f0' : '#1c1917';
-  const rankPillC0  = dm ? '#fbbf24' : '#92400e';
-  const rankPillBg0 = dm ? 'rgba(251,191,36,0.15)': '#fef3c7';
-  const rankPillC1  = dm ? '#6b7280' : '#a8a29e';
-  const rankPillBg1 = dm ? 'rgba(255,255,255,0.06)': 'rgba(0,0,0,0.05)';
-  const chipHiC     = dm ? '#fbbf24' : '#92400e';
-  const chipHiBg    = dm ? 'rgba(251,191,36,0.15)' : 'rgba(251,191,36,0.18)';
-  const chipDimC    = dm ? '#4b5563' : '#a8a29e';
-  const chipDimBg   = dm ? 'rgba(255,255,255,0.05)': 'rgba(0,0,0,0.05)';
-  const doiC        = dm ? '#d97706' : '#a16207';
-  const scoreTrackBg= dm ? 'rgba(255,255,255,0.08)': 'rgba(0,0,0,0.08)';
-  const scoreValC   = dm ? '#fbbf24' : '#d97706';
-  const scoreLblC   = dm ? '#4b5563' : '#a8a29e';
-  const borderLblC  = dm ? '#d97706' : '#a16207';
-  const borderRowBC = dm ? 'rgba(255,255,255,0.04)': 'rgba(0,0,0,0.04)';
-  const borderTitleC= dm ? '#d4cfc9' : '#44403c';
-  const borderDoiC  = dm ? '#b45309' : '#a16207';
+  const panelBg     = 'var(--surface)';
+  const panelBorder = 'var(--border-default)';
+  const panelShadow = 'var(--shadow-md)';
+  const tabBg       = 'var(--surface-raised)';
+  const tabBorder   = 'var(--border-default)';
+  const headingC    = 'var(--text-primary)';
+  const subC        = 'var(--text-muted)';
+  const divider     = 'var(--border-subtle)';
+  const controlBorder = 'var(--border-subtle)';
+  const labelCtrlC  = 'var(--text-secondary)';
+  const rankBadgeC  = 'var(--text-muted)';
+  const voidNameSel = 'var(--accent)';
+  const voidNameDef = 'var(--text-primary)';
+  const emptyBarBg  = 'var(--surface-active)';
+  const selHeaderBg = 'var(--surface-raised)';
+  const selHeaderBC = 'var(--border-default)';
+  const selHeaderC  = 'var(--accent)';
+  const selHeaderSC = 'var(--text-muted)';
+  const metaBlockC  = 'var(--text-primary)';
+  const reasoningC  = 'var(--text-secondary)';
+  const metaC       = 'var(--text-muted)';
+  const cardBg0     = 'var(--accent-soft)';
+  const cardBg1     = 'var(--surface-raised)';
+  const cardBorder0 = 'var(--accent)';
+  const cardBorder1 = 'var(--border-subtle)';
+  const cardTitleC  = 'var(--text-primary)';
+  const rankPillC0  = 'var(--accent)';
+  const rankPillBg0 = 'var(--surface-raised)';
+  const rankPillC1  = 'var(--text-muted)';
+  const rankPillBg1 = 'var(--surface-subtle)';
+  const chipHiC     = 'var(--accent)';
+  const chipHiBg    = 'var(--surface-raised)';
+  const chipDimC    = 'var(--text-muted)';
+  const chipDimBg   = 'var(--surface-subtle)';
+  const doiC        = 'var(--accent)';
+  const scoreTrackBg= 'var(--surface-active)';
+  const scoreValC   = 'var(--accent)';
+  const scoreLblC   = 'var(--text-muted)';
+  const borderLblC  = 'var(--text-secondary)';
+  const borderRowBC = 'var(--border-subtle)';
+  const borderTitleC= 'var(--text-primary)';
+  const borderDoiC  = 'var(--accent)';
 
   const handleItemClick = useCallback(
     (id: number) => { onSelectVoid(id === selectedVoidId ? null : id); },
@@ -127,9 +125,12 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
   return (
     <>
       {/* ── Toggle tab ── */}
-      <div
+      <button
+        type="button"
         onClick={() => setPanelOpen(o => !o)}
         title={panelOpen ? 'Close void panel' : 'Open void panel'}
+        aria-label={panelOpen ? 'Close knowledge void panel' : 'Open knowledge void panel'}
+        aria-expanded={panelOpen}
         style={{
           position: 'absolute',
           top: '50%',
@@ -137,8 +138,6 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
           transform: 'translateY(-50%)',
           zIndex: 60,
           background: tabBg,
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
           border: `1px solid ${tabBorder}`,
           borderLeft: 'none',
           borderRadius: '0 8px 8px 0',
@@ -148,19 +147,19 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
           flexDirection: 'column',
           alignItems: 'center',
           gap: 4,
-          boxShadow: '2px 0 12px rgba(0,0,0,0.12)',
+          boxShadow: 'var(--shadow-sm)',
           transition: 'left 0.28s cubic-bezier(.4,0,.2,1), background 0.3s',
         }}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <polygon
             points="8,2 14,8 8,14 2,8"
-            stroke="#d97706"
+            stroke="var(--accent)"
             strokeWidth="1.4"
             strokeDasharray="3 2"
-            fill="rgba(217,119,6,0.08)"
+            fill="var(--accent-soft)"
           />
-          <circle cx="8" cy="8" r="1.5" fill="rgba(217,119,6,0.5)" />
+          <circle cx="8" cy="8" r="1.5" fill="var(--accent)" />
         </svg>
         <span
           style={{
@@ -169,13 +168,13 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
             fontFamily: mono,
             fontSize: 10,
             letterSpacing: '0.08em',
-            color: '#92400e',
+            color: 'var(--text-secondary)',
             userSelect: 'none',
           }}
         >
           {panelOpen ? 'CLOSE' : 'VOIDS'}
         </span>
-      </div>
+      </button>
 
       {/* ── Panel ── */}
       <div
@@ -186,8 +185,6 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
           height: '100%',
           zIndex: 55,
           background: panelBg,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
           borderRight: `1px solid ${panelBorder}`,
           boxShadow: panelShadow,
           display: 'flex',
@@ -240,14 +237,16 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                 type="checkbox"
                 checked={checked}
                 onChange={onChange}
-                style={{ accentColor: '#d97706' }}
+                style={{ accentColor: 'var(--accent)' }}
               />
               {label}
             </label>
           ))}
           {selectedVoidId !== null && (
             <button
+              type="button"
               onClick={() => onSelectVoid(null)}
+              aria-label="Clear selected void"
               style={{
                 marginLeft: 'auto',
                 background: 'none',
@@ -255,7 +254,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                 cursor: 'pointer',
                 fontFamily: mono,
                 fontSize: 9,
-                color: dm ? '#4b5563' : '#a8a29e',
+                color: 'var(--text-muted)',
                 padding: '2px 4px',
               }}
             >
@@ -267,7 +266,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
         {/* ── Void list ── */}
         <div style={{ overflowY: 'auto', flex: '1 1 0' as any, minHeight: 0, padding: '4px 0' }}>
           {loading && (
-            <p style={{ fontFamily: mono, fontSize: 10, color: dm ? '#4b5563' : '#a8a29e', padding: 16, textAlign: 'center' }}>
+            <p style={{ fontFamily: mono, fontSize: 10, color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>
               Loading voids…
             </p>
           )}
@@ -277,14 +276,22 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
             const fill     = emptinessOf(v);
 
             return (
-              <div
+              <button
                 key={v.void_id}
+                type="button"
+                aria-pressed={selected}
+                aria-label={`${selected ? 'Deselect' : 'Select'} ${v.name ?? `Void ${v.void_id}`}`}
                 onClick={() => handleItemClick(v.void_id)}
                 style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
                   padding: '10px 14px',
                   cursor: 'pointer',
-                  background: selected ? (dm ? 'rgba(251,191,36,0.07)' : 'rgba(251,191,36,0.10)') : 'transparent',
-                  borderLeft: selected ? '3px solid #fbbf24' : '3px solid transparent',
+                  color: 'inherit',
+                  border: 'none',
+                  background: selected ? 'var(--accent-soft)' : 'transparent',
+                  borderLeft: selected ? '3px solid var(--accent)' : '3px solid transparent',
                   transition: 'background 0.12s',
                 }}
               >
@@ -317,12 +324,12 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                     style={{
                       position: 'absolute', top: 0, left: 0, height: '100%',
                       width: `${fill * 100}%`,
-                      background: '#fbbf24',
+                      background: 'var(--accent)',
                       borderRadius: 2,
                     }}
                   />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -351,14 +358,12 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                 top: 0,
                 zIndex: 2,
                 background: selHeaderBg,
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
                 borderBottom: `1px solid ${selHeaderBC}`,
                 flexShrink: 0,
               }}
             >
               <svg width={11} height={11} viewBox="-6 -6 12 12" style={{ flexShrink: 0 }}>
-                <polygon points="0,-5 5,0 0,5 -5,0" fill="#fbbf24" />
+                <polygon points="0,-5 5,0 0,5 -5,0" fill="var(--accent)" />
               </svg>
               <span style={{ fontFamily: mono, fontSize: 9, color: selHeaderC, letterSpacing: '0.07em', textTransform: 'uppercase', fontWeight: 600 }}>
                 Selected · {selectedVoid.selected_papers.length} picks
@@ -390,14 +395,21 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
             {selectedVoid.selected_papers.length > 0 && (
               <>
                 {selectedVoid.selected_papers.map(p => (
-                  <div
+                  <button
                     key={p.rank}
+                    type="button"
                     onClick={() => openDOI(p.DOI)}
+                    aria-label={`Open ${p.title.replace(/\n/g, ' ').trim()} on arXiv`}
                     style={{
+                      display: 'block',
+                      width: 'calc(100% - 20px)',
+                      textAlign: 'left',
                       margin: p.rank === 0 ? '7px 10px 5px' : '4px 10px',
-                      borderRadius: 7,
+                      borderRadius: 'var(--radius-sm)',
                       border: `1px solid ${p.rank === 0 ? cardBorder0 : cardBorder1}`,
                       background: p.rank === 0 ? cardBg0 : cardBg1,
+                      color: 'inherit',
+                      padding: 0,
                       overflow: 'hidden',
                       cursor: 'pointer',
                       position: 'relative',
@@ -409,7 +421,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                     <div
                       style={{
                         position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
-                        background: 'linear-gradient(to bottom, #fbbf24, #f59e0b)',
+                        background: 'var(--accent)',
                         opacity: 0.25 + p.scores.combined * 0.75,
                         borderRadius: '7px 0 0 7px',
                       }}
@@ -428,7 +440,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                         >
                           #{p.rank + 1}
                         </span>
-                        <span style={{ fontFamily: mono, fontSize: 8, color: '#c4a264', marginLeft: 'auto' }}>
+                        <span style={{ fontFamily: mono, fontSize: 8, color: 'var(--text-muted)', marginLeft: 'auto' }}>
                           {p.scores.angle_deg.toFixed(0)}° · S{p.scores.sector}
                         </span>
                       </div>
@@ -447,7 +459,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                         )}
                         {p.citation_count != null && (
                           <span style={{ fontFamily: mono, fontSize: 8, color: p.citation_count > 50 ? chipHiC : chipDimC, background: p.citation_count > 50 ? chipHiBg : chipDimBg, borderRadius: 3, padding: '2px 5px', flexShrink: 0 }}>
-                            {p.citation_count.toLocaleString()} ✦
+                            {p.citation_count.toLocaleString()} citations
                           </span>
                         )}
                         {p.DOI && p.DOI !== 'null' && (
@@ -461,8 +473,8 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                           {[
-                            { lbl: 'cite', val: p.scores.citation, color: '#fbbf24' },
-                            { lbl: 'rec',  val: p.scores.recency,  color: '#f59e0b' },
+                            { lbl: 'cite', val: p.scores.citation, color: 'var(--accent)' },
+                            { lbl: 'rec',  val: p.scores.recency,  color: 'var(--info)' },
                           ].map(({ lbl, val, color }) => (
                             <React.Fragment key={lbl}>
                               <span style={{ fontFamily: mono, fontSize: 8, color: scoreLblC, width: 22, flexShrink: 0 }}>{lbl}</span>
@@ -477,7 +489,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
                 <div style={{ height: 1, background: divider, margin: '6px 0 0', flexShrink: 0 }} />
               </>
@@ -488,11 +500,19 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
               Border papers ({selectedVoid.border_papers.length})
             </div>
             {selectedVoid.border_papers.map((p, i) => (
-              <div
+              <button
                 key={i}
+                type="button"
                 onClick={() => openDOI(p.DOI)}
+                aria-label={`Open ${p.title.replace(/\n/g, ' ').trim()} on arXiv`}
                 style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
                   padding: '5px 14px',
+                  color: 'inherit',
+                  background: 'transparent',
+                  border: 'none',
                   borderBottom: `1px solid ${borderRowBC}`,
                   cursor: 'pointer',
                 }}
@@ -505,7 +525,7 @@ export const VoidPanel: React.FC<VoidPanelProps> = ({
                     {p.DOI}
                   </p>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         )}

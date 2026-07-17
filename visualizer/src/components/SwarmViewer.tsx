@@ -4,8 +4,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-const mono  = "'JetBrains Mono', monospace";
-const serif = "'Crimson Pro', Georgia, serif";
+const mono  = 'inherit';
+const serif = 'inherit';
 
 // ── Log parsing ───────────────────────────────────────────────────────────────
 
@@ -222,15 +222,25 @@ function buildState(lines: string[]): SwarmState {
 const IdeaCard: React.FC<{ idea: Idea; index: number }> = ({ idea, index }) => {
   const [open, setOpen] = useState(false);
   const isResearch = idea.kind === 'research';
-  const accent     = isResearch ? '#38bdf8' : '#a78bfa';
-  const label      = isResearch ? 'IDEA' : 'CROSS';
+  const accent     = isResearch ? 'var(--info)' : 'var(--accent)';
+  const soft       = isResearch ? 'var(--info-soft)' : 'var(--accent-soft)';
+  const label      = isResearch ? 'Idea' : 'Cross';
 
   return (
-    <div onClick={() => setOpen(o => !o)} style={{
-      background:   isResearch ? 'rgba(56,189,248,0.04)' : 'rgba(167,139,250,0.04)',
-      border:       `1px solid ${accent}2a`,
+    <div onClick={() => setOpen(o => !o)} role="button" tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setOpen(o => !o);
+        }
+      }}
+      aria-expanded={open}
+      aria-label={`${open ? 'Collapse' : 'Expand'} ${label} ${index + 1}`}
+      style={{
+      background:   'var(--surface)',
+      border:       '1px solid var(--border-subtle)',
       borderLeft:   `3px solid ${accent}`,
-      borderRadius: 5,
+      borderRadius: 'var(--radius-sm)',
       padding:      '7px 10px',
       cursor:       'pointer',
       marginBottom: 5,
@@ -238,41 +248,41 @@ const IdeaCard: React.FC<{ idea: Idea; index: number }> = ({ idea, index }) => {
       {/* Label + chevron */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
         <span style={{
-          fontFamily: mono, fontSize: 8, letterSpacing: '0.05em',
-          color: accent, background: `${accent}1a`, borderRadius: 3, padding: '1px 5px',
+          fontFamily: mono, fontSize: 9,
+          color: accent, background: soft, borderRadius: 'var(--radius-sm)', padding: '1px 5px',
         }}>
           {label} {index + 1}
         </span>
-        <span style={{ fontFamily: mono, fontSize: 9, color: '#374151', marginLeft: 'auto' }}>
-          {open ? '▲' : '▼'}
+        <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--text-muted)', marginLeft: 'auto' }} aria-hidden="true">
+          {open ? '−' : '+'}
         </span>
       </div>
 
       {/* Summary text — always visible */}
-      <div style={{ fontFamily: serif, fontSize: 12, color: '#d1d5db', lineHeight: 1.45 }}>
+      <div style={{ fontFamily: serif, fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.45 }}>
         {idea.text || '(no summary)'}
       </div>
 
       {/* Expanded detail */}
       {open && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, borderTop: `1px solid ${accent}18`, paddingTop: 8 }}>
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
           {idea.connection && (
             <div style={{
-              background:   'rgba(167,139,250,0.08)',
-              border:       '1px solid rgba(167,139,250,0.2)',
-              borderRadius: 4, padding: '6px 8px',
+              background:   'var(--accent-soft)',
+              border:       '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)', padding: '6px 8px',
             }}>
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#a78bfa', marginBottom: 3, letterSpacing: '0.06em' }}>
-                BRIDGE
+              <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--accent)', marginBottom: 3 }}>
+                Bridge
               </div>
-              <div style={{ fontFamily: serif, fontSize: 11, color: '#c4b5fd', lineHeight: 1.5 }}>
+              <div style={{ fontFamily: serif, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                 {idea.connection}
               </div>
             </div>
           )}
-          <DetailField label="Rationale"       value={idea.rationale} color="#fbbf24" />
-          <DetailField label="Expected Effect" value={idea.expected}  color="#4ade80" />
-          <DetailField label="Code Changes"    value={idea.changes}   color="#f59e0b" mono />
+          <DetailField label="Rationale"       value={idea.rationale} color="var(--warning)" />
+          <DetailField label="Expected Effect" value={idea.expected}  color="var(--success)" />
+          <DetailField label="Code Changes"    value={idea.changes}   color="var(--accent)" mono />
         </div>
       )}
     </div>
@@ -282,13 +292,13 @@ const IdeaCard: React.FC<{ idea: Idea; index: number }> = ({ idea, index }) => {
 const DetailField: React.FC<{ label: string; value: string; color: string; mono?: boolean }> =
   ({ label, value, color, mono: isMono }) => (
     <div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 8, color, marginBottom: 2, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+      <div style={{ fontFamily: 'inherit', fontSize: 9, color, marginBottom: 2 }}>
         {label}
       </div>
       <div style={{
-        fontFamily:  isMono ? "'JetBrains Mono', monospace" : serif,
+        fontFamily:  isMono ? "'JetBrains Mono', ui-monospace, monospace" : serif,
         fontSize:    isMono ? 10 : 11,
-        color:       '#9ca3af',
+        color:       'var(--text-secondary)',
         lineHeight:  1.55,
         whiteSpace:  'pre-wrap',
         wordBreak:   'break-word',
@@ -303,19 +313,20 @@ const DetailField: React.FC<{ label: string; value: string; color: string; mono?
 const AgentEntryCard: React.FC<{ entry: AgentEntry }> = ({ entry }) => {
   const isCross   = entry.stage.includes('cross');
   const isActive  = entry.status === 'active';
-  const stageColor = isCross   ? '#a78bfa'
-                   : isActive  ? '#38bdf8'
-                   : '#4ade80';
-  const dotColor  = isActive ? stageColor : '#4ade80';
+  const stageColor = isCross   ? 'var(--accent)'
+                   : isActive  ? 'var(--info)'
+                   : 'var(--success)';
+  const stageSoft = isCross ? 'var(--accent-soft)' : isActive ? 'var(--info-soft)' : 'var(--success-soft)';
+  const dotColor  = isActive ? stageColor : 'var(--success)';
 
   const researchIdeas = entry.ideas.filter(i => i.kind === 'research');
   const crossIdeas    = entry.ideas.filter(i => i.kind === 'cross');
 
   return (
     <div style={{
-      background:   'rgba(14,16,22,0.95)',
-      border:       `1px solid ${stageColor}30`,
-      borderRadius: 8,
+      background:   'var(--surface-raised)',
+      border:       '1px solid var(--border-subtle)',
+      borderRadius: 'var(--radius-md)',
       overflow:     'hidden',
       marginBottom: 8,
     }}>
@@ -323,38 +334,37 @@ const AgentEntryCard: React.FC<{ entry: AgentEntry }> = ({ entry }) => {
       <div style={{
         display:    'flex', alignItems: 'center', gap: 8,
         padding:    '8px 12px',
-        background: `${stageColor}0a`,
+        background: stageSoft,
         borderBottom: (entry.ideas.length > 0 || entry.examining.length > 0)
-          ? `1px solid ${stageColor}1a` : 'none',
+          ? '1px solid var(--border-subtle)' : 'none',
       }}>
         {/* Status dot */}
         <div style={{
           width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
           background: dotColor,
-          boxShadow:  isActive ? `0 0 7px ${dotColor}` : 'none',
           animation:  isActive ? 'swPulse 1.4s ease-in-out infinite' : undefined,
-        }} />
+        }} role="status" aria-label={isActive ? 'Running' : 'Done'} />
 
         {/* Agent name */}
-        <span style={{ fontFamily: mono, fontSize: 11, color: '#e2e8f0', fontWeight: 700, flexShrink: 0 }}>
+        <span style={{ fontFamily: mono, fontSize: 11, color: 'var(--text-primary)', fontWeight: 700, flexShrink: 0 }}>
           {entry.label}
         </span>
 
         {/* Stage badge */}
         <span style={{
-          fontFamily:  mono, fontSize: 8, letterSpacing: '0.05em',
+          fontFamily:  mono, fontSize: 9,
           color:       stageColor,
-          background:  `${stageColor}18`,
-          border:      `1px solid ${stageColor}30`,
-          borderRadius: 4, padding: '1px 7px',
-          textTransform: 'uppercase', flexShrink: 0,
+          background:  stageSoft,
+          border:      '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-sm)', padding: '1px 7px',
+          flexShrink: 0,
         }}>
-          {isCross ? '⟳ cross-pollinating' : '◆ research proposal'}
+          {isCross ? 'Cross-pollinating' : 'Research proposal'}
         </span>
 
         {/* Elapsed */}
         {entry.elapsed && (
-          <span style={{ fontFamily: mono, fontSize: 9, color: '#374151', marginLeft: 'auto' }}>
+          <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--text-muted)', marginLeft: 'auto' }}>
             {entry.elapsed}
           </span>
         )}
@@ -373,26 +383,26 @@ const AgentEntryCard: React.FC<{ entry: AgentEntry }> = ({ entry }) => {
         <div style={{
           display:    'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
           padding:    '5px 12px',
-          background: 'rgba(167,139,250,0.04)',
-          borderBottom: '1px solid rgba(167,139,250,0.1)',
+          background: 'var(--accent-soft)',
+          borderBottom: '1px solid var(--border-subtle)',
         }}>
-          <span style={{ fontFamily: mono, fontSize: 9, color: '#6b7280', flexShrink: 0 }}>
+          <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--text-muted)', flexShrink: 0 }}>
             {entry.label}
           </span>
-          <span style={{ fontFamily: mono, fontSize: 10, color: '#a78bfa' }}>×</span>
+          <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--accent)' }}>×</span>
           {entry.examining.map((other, i) => (
             <React.Fragment key={other}>
               <span style={{
                 fontFamily: mono, fontSize: 9,
-                color:      '#c4b5fd',
-                background: 'rgba(167,139,250,0.12)',
-                border:     '1px solid rgba(167,139,250,0.25)',
-                borderRadius: 4, padding: '1px 7px',
+                color:      'var(--text-secondary)',
+                background: 'var(--surface-raised)',
+                border:     '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)', padding: '1px 7px',
               }}>
                 {other}
               </span>
               {i < entry.examining.length - 1 && (
-                <span style={{ fontFamily: mono, fontSize: 9, color: '#374151' }}>+</span>
+                <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--text-muted)' }}>+</span>
               )}
             </React.Fragment>
           ))}
@@ -405,8 +415,8 @@ const AgentEntryCard: React.FC<{ entry: AgentEntry }> = ({ entry }) => {
           {researchIdeas.length > 0 && (
             <>
               <div style={{
-                fontFamily: mono, fontSize: 8, color: '#38bdf8',
-                letterSpacing: '0.07em', marginBottom: 6, textTransform: 'uppercase',
+                fontFamily: mono, fontSize: 9, color: 'var(--info)',
+                marginBottom: 6,
               }}>
                 Research Ideas ({researchIdeas.length})
               </div>
@@ -416,8 +426,8 @@ const AgentEntryCard: React.FC<{ entry: AgentEntry }> = ({ entry }) => {
           {crossIdeas.length > 0 && (
             <div style={{ marginTop: researchIdeas.length > 0 ? 8 : 0 }}>
               <div style={{
-                fontFamily: mono, fontSize: 8, color: '#a78bfa',
-                letterSpacing: '0.07em', marginBottom: 6, textTransform: 'uppercase',
+                fontFamily: mono, fontSize: 9, color: 'var(--accent)',
+                marginBottom: 6,
               }}>
                 Cross-Pollination Ideas ({crossIdeas.length})
               </div>
@@ -436,7 +446,7 @@ const IterationBlock: React.FC<{ iter: Iteration }> = ({ iter }) => {
   const isDone    = !!iter.result;
   const accuracy  = iter.result ? /test_accuracy=([\d.]+)/.exec(iter.result)?.[1] : null;
   const decision  = iter.result ? /decision=(\w+)/.exec(iter.result)?.[1] : null;
-  const decColor  = decision === 'keep' ? '#4ade80' : decision === 'revert' ? '#f87171' : '#fbbf24';
+  const decColor  = decision === 'keep' ? 'var(--success)' : decision === 'revert' ? 'var(--danger)' : 'var(--warning)';
 
   return (
     <div style={{ marginBottom: 14 }}>
@@ -444,28 +454,28 @@ const IterationBlock: React.FC<{ iter: Iteration }> = ({ iter }) => {
       <div style={{
         display:      'flex', alignItems: 'center', gap: 8,
         padding:      '6px 10px',
-        background:   'rgba(255,255,255,0.03)',
-        border:       '1px solid rgba(255,255,255,0.07)',
-        borderRadius: '6px 6px 0 0',
+        background:   'var(--surface-subtle)',
+        border:       '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
         borderBottom: 'none',
       }}>
-        <span style={{ fontFamily: mono, fontSize: 10, color: '#6b7280', fontWeight: 700, letterSpacing: '0.04em' }}>
-          ITERATION {iter.num}
+        <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--text-secondary)', fontWeight: 700 }}>
+          Iteration {iter.num}
         </span>
 
         {/* Selected agent chips */}
         {iter.selected.length > 0 && (
           <>
-            <span style={{ fontFamily: mono, fontSize: 9, color: '#374151' }}>·</span>
+            <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--text-muted)' }}>·</span>
             {iter.selected.map(id => {
               const lbl = id.replace(/^expert:/, '').replace(/_/g, ' ');
               return (
                 <span key={id} style={{
                   fontFamily: mono, fontSize: 8,
-                  color:      '#94a3b8',
-                  background: 'rgba(148,163,184,0.08)',
-                  border:     '1px solid rgba(148,163,184,0.15)',
-                  borderRadius: 3, padding: '1px 6px',
+                  color:      'var(--text-secondary)',
+                  background: 'var(--surface-raised)',
+                  border:     '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)', padding: '1px 6px',
                 }}>
                   {lbl}
                 </span>
@@ -480,14 +490,14 @@ const IterationBlock: React.FC<{ iter: Iteration }> = ({ iter }) => {
             {decision && (
               <span style={{
                 fontFamily: mono, fontSize: 8, color: decColor,
-                background: `${decColor}18`, border: `1px solid ${decColor}30`,
-                borderRadius: 3, padding: '1px 7px', textTransform: 'uppercase',
+                background: 'var(--surface-raised)', border: `1px solid ${decColor}`,
+                borderRadius: 'var(--radius-sm)', padding: '1px 7px',
               }}>
                 {decision}
               </span>
             )}
             {accuracy && (
-              <span style={{ fontFamily: mono, fontSize: 9, color: '#4ade80', fontWeight: 700 }}>
+              <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--success)', fontWeight: 700 }}>
                 {(parseFloat(accuracy) * 100).toFixed(1)}% accuracy
               </span>
             )}
@@ -495,7 +505,7 @@ const IterationBlock: React.FC<{ iter: Iteration }> = ({ iter }) => {
         )}
         {!isDone && (
           <span style={{
-            marginLeft: 'auto', fontFamily: mono, fontSize: 8, color: '#38bdf8',
+            marginLeft: 'auto', fontFamily: mono, fontSize: 9, color: 'var(--info)',
             animation: 'swPulse 1.4s ease-in-out infinite',
           }}>
             in progress
@@ -505,14 +515,14 @@ const IterationBlock: React.FC<{ iter: Iteration }> = ({ iter }) => {
 
       {/* Agent entries */}
       <div style={{
-        border:       '1px solid rgba(255,255,255,0.07)',
+        border:       '1px solid var(--border-subtle)',
         borderTop:    'none',
         borderRadius: '0 0 6px 6px',
         padding:      '8px 8px 4px',
-        background:   'rgba(10,12,16,0.5)',
+        background:   'var(--surface)',
       }}>
         {iter.agents.length === 0 ? (
-          <div style={{ fontFamily: mono, fontSize: 10, color: '#374151', padding: '4px 2px' }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: 'var(--text-muted)', padding: '4px 2px' }}>
             Waiting for agents…
           </div>
         ) : (
@@ -545,7 +555,8 @@ export const SwarmViewer: React.FC<{ lines: string[] }> = ({ lines }) => {
     <div style={{
       flex: 1, minHeight: 0,
       display: 'flex', flexDirection: 'column',
-      background: '#090b0f',
+      background: 'var(--background)',
+      color: 'var(--text-primary)',
     }}>
       <style>{`@keyframes swPulse{0%,100%{opacity:1}50%{opacity:0.25}}`}</style>
 
@@ -555,20 +566,20 @@ export const SwarmViewer: React.FC<{ lines: string[] }> = ({ lines }) => {
         maxHeight:    96,
         overflowY:    'auto',
         padding:      '7px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        background:   'rgba(8,10,14,0.98)',
+        borderBottom: '1px solid var(--border-subtle)',
+        background:   'var(--surface)',
         display:      'flex', flexDirection: 'column', gap: 2,
       }}>
         {phases.length === 0 ? (
-          <span style={{ fontFamily: mono, fontSize: 10, color: '#374151', fontStyle: 'italic' }}>
+          <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>
             Waiting for phases…
           </span>
         ) : phases.map((ph, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: ph.done ? '#4ade80' : '#818cf8', flexShrink: 0 }}>
-              {ph.done ? '✓' : '▶'}
+            <span style={{ fontFamily: mono, fontSize: 10, color: ph.done ? 'var(--success)' : 'var(--info)', flexShrink: 0 }}>
+              {ph.done ? 'Done' : 'Active'}
             </span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: ph.done ? '#4ade8099' : '#818cf8cc', lineHeight: 1.4 }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: ph.done ? 'var(--text-muted)' : 'var(--text-secondary)', lineHeight: 1.4 }}>
               {ph.text}
             </span>
           </div>
@@ -582,7 +593,7 @@ export const SwarmViewer: React.FC<{ lines: string[] }> = ({ lines }) => {
         padding:   '10px 10px',
       }}>
         {iterations.length === 0 && (
-          <div style={{ fontFamily: mono, fontSize: 11, color: '#374151', fontStyle: 'italic', padding: '4px 2px' }}>
+          <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 2px' }}>
             Waiting for research iterations to begin…
           </div>
         )}

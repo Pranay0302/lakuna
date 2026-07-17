@@ -16,7 +16,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
   y,
   containerWidth,
   containerHeight,
-  darkMode,
 }) => {
   if (!paper) return null;
 
@@ -34,8 +33,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
     paper.doi.trim() !== '';
   const hasPdf = Boolean(paper.pdfUrl?.trim());
 
-  const dm = darkMode;
-
   return (
     <div
       className="pointer-events-none absolute z-50 select-none"
@@ -43,25 +40,20 @@ export const Tooltip: React.FC<TooltipProps> = ({
     >
       <div
         style={{
-          background:          dm ? 'rgba(18,20,28,0.95)'    : 'rgba(255,255,255,0.93)',
-          backdropFilter:      'blur(20px)',
-          WebkitBackdropFilter:'blur(20px)',
-          border:              `1px solid ${dm ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-          borderRadius:        12,
+          background:          'var(--surface-raised)',
+          border:              '1px solid var(--border-default)',
+          borderRadius:        'var(--radius-md)',
           padding:             '12px 14px',
-          boxShadow:           dm
-            ? '0 8px 32px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.4)'
-            : '0 8px 32px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)',
-          transition: 'background 0.3s, border-color 0.3s',
+          boxShadow:           'var(--shadow-md)',
+          transition: 'background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard)',
         }}
       >
         <p
           style={{
-            fontFamily: "'Crimson Pro', 'Georgia', serif",
             fontSize:   13,
             lineHeight: '1.4',
             fontWeight: 500,
-            color:      dm ? '#e2e8f0' : '#1f2937',
+            color:      'var(--text-primary)',
             margin:     '0 0 4px',
           }}
         >
@@ -72,7 +64,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           <p
             style={{
               fontSize:   11,
-              color:      dm ? '#818cf8' : '#3b82f6',
+              color:      'var(--accent)',
               margin:     '0 0 6px',
               overflow:   'hidden',
               textOverflow: 'ellipsis',
@@ -87,17 +79,16 @@ export const Tooltip: React.FC<TooltipProps> = ({
           <span
             style={{
               fontSize:   10,
-              fontFamily: 'monospace',
-              color:      dm ? '#4b5563' : '#9ca3af',
+              color:      'var(--text-muted)',
             }}
           >
             id: {paper.id}
           </span>
-          <span style={{ color: dm ? '#374151' : '#e5e7eb' }}>·</span>
+          <span style={{ color: 'var(--border-strong)' }}>·</span>
           <span
             style={{
               fontSize: 10,
-              color:    dm ? '#4b5563' : '#9ca3af',
+              color:    'var(--text-muted)',
             }}
           >
             cluster {paper.clusterId < 0 ? 'noise' : paper.clusterId}
@@ -108,7 +99,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           <p
             style={{
               fontSize: 10,
-              color:    dm ? '#374151' : '#94a3b8',
+              color:    'var(--text-secondary)',
               margin:   '4px 0 0',
             }}
           >

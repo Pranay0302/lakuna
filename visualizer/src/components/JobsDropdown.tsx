@@ -9,14 +9,14 @@ interface Props {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  running: '#22d3ee',
-  done:    '#4ade80',
-  error:   '#f87171',
+  running: 'var(--info)',
+  done:    'var(--success)',
+  error:   'var(--danger)',
 };
 
 const IMAGENET_GAP = 'Transformer-Augmented Vision Adaptation Gap';
 
-export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, darkMode: dm }) => {
+export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,20 +39,23 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <button
+        type="button"
         onClick={() => setOpen(v => !v)}
+        aria-label={`Investigation jobs, ${total} total${running ? `, ${running} running` : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
         style={{
           display:       'flex',
           alignItems:    'center',
           gap:           6,
           height:        38,
           padding:       '0 14px',
-          background:    open ? (dm ? 'rgba(99,102,241,0.15)' : 'rgba(79,110,247,0.1)') : 'transparent',
+          background:    open ? 'var(--surface-active)' : 'transparent',
           border:        'none',
-          borderLeft:    `1px solid ${dm ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.09)'}`,
+          borderLeft:    '1px solid var(--border-subtle)',
           cursor:        'pointer',
-          fontFamily:    "'JetBrains Mono', monospace",
           fontSize:      11,
-          color:         dm ? '#94a3b8' : '#64748b',
+          color:         'var(--text-secondary)',
           userSelect:    'none',
         }}
         title="Active investigation jobs"
@@ -62,7 +65,7 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
             width:        7,
             height:       7,
             borderRadius: '50%',
-            background:   '#22d3ee',
+            background:   'var(--info)',
             display:      'inline-block',
             animation:    'jdPulse 1.5s ease-in-out infinite',
             flexShrink:   0,
@@ -73,24 +76,23 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
       </button>
 
       {open && (
-        <div style={{
+        <div role="menu" aria-label="Active investigations" style={{
           position:    'absolute',
           top:         '100%',
           right:       0,
           minWidth:    280,
-          background:  dm ? '#161820' : '#ffffff',
-          border:      `1px solid ${dm ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.12)'}`,
-          borderRadius: 10,
-          boxShadow:   '0 8px 32px rgba(0,0,0,0.4)',
+          background:  'var(--surface-raised)',
+          border:      '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow:   'var(--shadow-md)',
           zIndex:      2000,
           overflow:    'hidden',
         }}>
           <div style={{
             padding:     '8px 12px',
-            borderBottom: `1px solid ${dm ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}`,
-            fontFamily:  "'JetBrains Mono', monospace",
+            borderBottom: '1px solid var(--border-subtle)',
             fontSize:    9,
-            color:       dm ? '#4b5563' : '#9ca3af',
+            color:       'var(--text-muted)',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
           }}>
@@ -102,11 +104,11 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
             const logsTabId     = `${jobId}:logs`;
             const deepTabId     = `${jobId}:deep`;
             const activeIsThis  = activeTab.startsWith(jobId);
-            const dotColor      = STATUS_COLOR[job.status] ?? '#6b7280';
+            const dotColor      = STATUS_COLOR[job.status] ?? 'var(--text-muted)';
 
             return (
               <div key={jobId} style={{
-                borderBottom: `1px solid ${dm ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}`,
+                borderBottom: '1px solid var(--border-subtle)',
               }}>
                 {/* Job header */}
                 <div style={{
@@ -114,18 +116,16 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
                   display:    'flex',
                   alignItems: 'center',
                   gap:        7,
-                  background: activeIsThis ? (dm ? 'rgba(99,102,241,0.07)' : 'rgba(79,110,247,0.05)') : 'transparent',
+                  background: activeIsThis ? 'var(--surface-subtle)' : 'transparent',
                 }}>
                   <span style={{
                     width: 7, height: 7, borderRadius: '50%',
                     background: dotColor, flexShrink: 0,
-                    boxShadow: `0 0 6px ${dotColor}`,
                     animation: job.status === 'running' ? 'jdPulse 1.5s ease-in-out infinite' : undefined,
                   }} />
                   <span style={{
-                    fontFamily:   "'Crimson Pro', Georgia, serif",
                     fontSize:     13,
-                    color:        dm ? '#c9d1e0' : '#1e293b',
+                    color:        'var(--text-primary)',
                     flex:         1,
                     overflow:     'hidden',
                     textOverflow: 'ellipsis',
@@ -133,7 +133,7 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
                   }}>
                     {job.voidName}
                   </span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 8, color: dotColor }}>
+                  <span style={{ fontSize: 9, color: dotColor }}>
                     {job.status}
                   </span>
                 </div>
@@ -144,14 +144,12 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
                     label="Full Logs"
                     active={activeTab === logsTabId}
                     onClick={() => { onNavigate(logsTabId); close(); }}
-                    dm={dm}
                   />
                   {isImagenet && (
                     <TabButton
                       label="Deep Research"
                       active={activeTab === deepTabId}
                       onClick={() => { onNavigate(deepTabId); close(); }}
-                      dm={dm}
                       accent
                     />
                   )}
@@ -170,20 +168,22 @@ export const JobsDropdown: React.FC<Props> = ({ jobs, activeTab, onNavigate, dar
 };
 
 const TabButton: React.FC<{
-  label: string; active: boolean; onClick: () => void; dm: boolean; accent?: boolean;
-}> = ({ label, active, onClick, dm, accent }) => (
+  label: string; active: boolean; onClick: () => void; accent?: boolean;
+}> = ({ label, active, onClick, accent }) => (
   <button
+    type="button"
+    role="menuitem"
+    aria-current={active ? 'page' : undefined}
     onClick={onClick}
     style={{
       background:   active
-        ? (accent ? 'rgba(99,102,241,0.2)' : (dm ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)'))
+        ? (accent ? 'var(--accent-soft)' : 'var(--surface-active)')
         : 'transparent',
-      border:       `1px solid ${active ? (accent ? '#6366f1' : (dm ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)')) : 'rgba(255,255,255,0.06)'}`,
-      borderRadius: 5,
+      border:       `1px solid ${active ? (accent ? 'var(--accent)' : 'var(--border-strong)') : 'var(--border-default)'}`,
+      borderRadius: 'var(--radius-sm)',
       padding:      '3px 9px',
-      fontFamily:   "'JetBrains Mono', monospace",
       fontSize:     9,
-      color:        active ? (accent ? '#818cf8' : (dm ? '#e2e8f0' : '#1e293b')) : (dm ? '#4b5563' : '#9ca3af'),
+      color:        active ? (accent ? 'var(--accent)' : 'var(--text-primary)') : 'var(--text-muted)',
       cursor:       'pointer',
       letterSpacing: '0.04em',
     }}

@@ -57,6 +57,9 @@ export const EmbeddingAtlas: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
   });
+  const [researchPanelWidth, setResearchPanelWidth] = useState(() =>
+    Math.min(1180, Math.max(420, window.innerWidth - 32)),
+  );
 
   const dm = darkMode; // shorthand
 
@@ -157,6 +160,42 @@ export const EmbeddingAtlas: React.FC = () => {
     setSize({ width: el.clientWidth, height: el.clientHeight });
     return () => ro.disconnect();
   }, []);
+
+  useEffect(() => {
+    const handleWindowResize = () => {
+      setResearchPanelWidth((width) =>
+        Math.min(width, Math.max(420, window.innerWidth - 16)),
+      );
+    };
+    window.addEventListener("resize", handleWindowResize);
+    return () => window.removeEventListener("resize", handleWindowResize);
+  }, []);
+
+  const resizeResearchPanel = useCallback((clientX: number) => {
+    const minWidth = Math.min(420, window.innerWidth);
+    const maxWidth = Math.max(minWidth, window.innerWidth - 16);
+    setResearchPanelWidth(
+      Math.min(maxWidth, Math.max(minWidth, window.innerWidth - clientX)),
+    );
+  }, []);
+
+  const handleResearchResizeStart = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const handle = event.currentTarget;
+      handle.setPointerCapture(event.pointerId);
+      resizeResearchPanel(event.clientX);
+    },
+    [resizeResearchPanel],
+  );
+
+  const handleResearchResizeMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+      resizeResearchPanel(event.clientX);
+    },
+    [resizeResearchPanel],
+  );
 
   useEffect(() => {
     if (papers.length > 0) qtRef.current = buildQuadtree(papers);
@@ -469,21 +508,17 @@ export const EmbeddingAtlas: React.FC = () => {
 
   // ── Theme tokens ──────────────────────────────────────────────────────────
   const theme = {
-    bg: dm
-      ? "linear-gradient(135deg, #0d0f14 0%, #111318 40%, #120f18 100%)"
-      : "linear-gradient(135deg, #f0f2f8 0%, #e8ecf5 40%, #f2eef8 100%)",
-    dot: dm ? "rgba(120,130,180,0.07)" : "rgba(120,130,180,0.12)",
-    glass: dm ? "rgba(20,22,30,0.88)" : "rgba(255,255,255,0.82)",
-    glassBorder: dm ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
-    glassShadow: dm
-      ? "0 4px 16px rgba(0,0,0,0.4)"
-      : "0 4px 16px rgba(0,0,0,0.07)",
-    titleColor: dm ? "#e2e8f0" : "#1e293b",
-    subColor: dm ? "#f59e0b" : "#94a3b8",
-    btnBg: dm ? "rgba(20,22,30,0.9)" : "rgba(255,255,255,0.9)",
-    btnBorder: dm ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-    btnColor: dm ? "#94a3b8" : "#475569",
-    clusterBg: dm ? "rgba(20,22,30,0.92)" : "rgba(255,255,255,0.92)",
+    bg: "var(--graph-background)",
+    dot: "var(--graph-grid)",
+    glass: "color-mix(in srgb, var(--surface-raised) 94%, transparent)",
+    glassBorder: "var(--border-subtle)",
+    glassShadow: "var(--shadow-sm)",
+    titleColor: "var(--text-primary)",
+    subColor: "var(--text-muted)",
+    btnBg: "var(--surface-raised)",
+    btnBorder: "var(--border-default)",
+    btnColor: "var(--text-secondary)",
+    clusterBg: "var(--surface-raised)",
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -535,20 +570,24 @@ export const EmbeddingAtlas: React.FC = () => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div
+      data-theme={dm ? "dark" : "light"}
+      style={{ display: "flex", flexDirection: "column", height: "100dvh" }}
+    >
       {/* Content area — visualization always mounted; research overlay on top */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         {/* Visualization pane */}
         <div
           className="absolute inset-0 overflow-hidden"
-          style={{ background: theme.bg, transition: "background 0.4s" }}
+          style={{ background: theme.bg }}
         >
           {/* Grid texture */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               backgroundImage: `radial-gradient(circle, ${theme.dot} 1px, transparent 1px)`,
-              backgroundSize: "28px 28px",
+              backgroundSize: "24px 24px",
+              opacity: 0.55,
               zIndex: 0,
             }}
           />
@@ -641,7 +680,7 @@ export const EmbeddingAtlas: React.FC = () => {
 
           {/* Search bar */}
           <div
-            className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3"
+            className="atlas-search absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3"
             style={{ zIndex: 50 }}
           >
             <SearchBar
@@ -657,37 +696,29 @@ export const EmbeddingAtlas: React.FC = () => {
             <div
               style={{
                 background: theme.glass,
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
                 border: `1px solid ${theme.glassBorder}`,
-                borderRadius: 10,
-                padding: "8px 14px",
+                borderRadius: "var(--radius-md)",
+                padding: "10px 14px",
                 boxShadow: theme.glassShadow,
-                transition: "background 0.4s, border-color 0.4s",
               }}
             >
               <h1
                 style={{
-                  fontFamily: "'Crimson Pro', Georgia, serif",
-                  fontSize: 17,
-                  lineHeight: 1,
+                  fontSize: 16,
+                  lineHeight: 1.15,
                   fontWeight: 600,
                   color: theme.titleColor,
                   margin: 0,
-                  transition: "color 0.4s",
                 }}
               >
                 arXiv Atlas
               </h1>
               <p
                 style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9,
-                  letterSpacing: "0.04em",
+                  fontSize: 11,
                   marginTop: 4,
                   marginBottom: 0,
                   color: theme.subColor,
-                  transition: "color 0.4s",
                 }}
               >
                 {stats.total > 0
@@ -710,6 +741,7 @@ export const EmbeddingAtlas: React.FC = () => {
               <button
                 key={label}
                 title={title}
+                aria-label={title}
                 onClick={() => {
                   if (delta === null) {
                     setTransform({
@@ -741,20 +773,15 @@ export const EmbeddingAtlas: React.FC = () => {
                   width: 36,
                   height: 36,
                   background: theme.btnBg,
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
                   border: `1px solid ${theme.btnBorder}`,
-                  borderRadius: 8,
-                  boxShadow: dm
-                    ? "0 2px 8px rgba(0,0,0,0.4)"
-                    : "0 2px 8px rgba(0,0,0,0.07)",
+                  borderRadius: "var(--radius-md)",
+                  boxShadow: "var(--shadow-xs)",
                   fontSize: label === "⊙" ? 16 : 20,
                   color: theme.btnColor,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  transition: "background 0.15s",
                 }}
               >
                 {label}
@@ -764,25 +791,21 @@ export const EmbeddingAtlas: React.FC = () => {
             {/* Dark mode toggle */}
             <button
               title={dm ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={dm ? "Switch to light mode" : "Switch to dark mode"}
               onClick={() => setDarkMode((v) => !v)}
               style={{
                 width: 36,
                 height: 36,
                 background: theme.btnBg,
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
                 border: `1px solid ${theme.btnBorder}`,
-                borderRadius: 8,
-                boxShadow: dm
-                  ? "0 2px 8px rgba(0,0,0,0.4)"
-                  : "0 2px 8px rgba(0,0,0,0.07)",
+                borderRadius: "var(--radius-md)",
+                boxShadow: "var(--shadow-xs)",
                 fontSize: 16,
                 color: theme.btnColor,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                transition: "background 0.15s",
               }}
             >
               {dm ? "☀︎" : "☽"}
@@ -795,16 +818,12 @@ export const EmbeddingAtlas: React.FC = () => {
               <div
                 style={{
                   background: theme.clusterBg,
-                  backdropFilter: "blur(16px)",
-                  WebkitBackdropFilter: "blur(16px)",
-                  border: `1px solid ${clusters.get(selectedClusterId)?.color ?? "#ccc"}40`,
-                  borderRadius: 10,
+                  border: "1px solid var(--border-subtle)",
+                  borderLeft: `3px solid ${clusters.get(selectedClusterId)?.color ?? "var(--border-strong)"}`,
+                  borderRadius: "var(--radius-md)",
                   padding: "10px 14px",
-                  boxShadow: dm
-                    ? "0 4px 20px rgba(0,0,0,0.5)"
-                    : "0 4px 20px rgba(0,0,0,0.08)",
+                  boxShadow: "var(--shadow-sm)",
                   maxWidth: 260,
-                  transition: "background 0.4s",
                 }}
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -814,15 +833,14 @@ export const EmbeddingAtlas: React.FC = () => {
                       height: 10,
                       borderRadius: "50%",
                       background:
-                        clusters.get(selectedClusterId)?.color ?? "#ccc",
+                        clusters.get(selectedClusterId)?.color ?? "var(--border-strong)",
                     }}
                   />
                   <span
                     style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 500,
-                      color: dm ? "#e2e8f0" : "#374151",
+                      color: "var(--text-primary)",
                     }}
                   >
                     {clusters.get(selectedClusterId)?.label ??
@@ -830,13 +848,14 @@ export const EmbeddingAtlas: React.FC = () => {
                   </span>
                   <button
                     onClick={() => setSelectedClusterId(null)}
+                    aria-label="Clear cluster selection"
                     style={{
                       marginLeft: "auto",
                       fontSize: 14,
                       background: "none",
                       border: "none",
                       cursor: "pointer",
-                      color: dm ? "#4b5563" : "#d1d5db",
+                      color: "var(--text-muted)",
                     }}
                   >
                     ×
@@ -844,9 +863,8 @@ export const EmbeddingAtlas: React.FC = () => {
                 </div>
                 <p
                   style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 10,
-                    color: dm ? "#6b7280" : "#6b7280",
+                    fontSize: 11,
+                    color: "var(--text-muted)",
                     margin: 0,
                   }}
                 >
@@ -871,27 +889,22 @@ export const EmbeddingAtlas: React.FC = () => {
               <button
                 onClick={handleInvestigate}
                 style={{
-                  background:
-                    "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-                  color: "white",
+                  background: "var(--accent)",
+                  color: "var(--accent-foreground)",
                   border: "none",
-                  borderRadius: 10,
-                  padding: "10px 28px",
-                  fontSize: 12,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontWeight: 700,
+                  borderRadius: "var(--radius-md)",
+                  minHeight: 38,
+                  padding: "8px 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
                   cursor: "pointer",
-                  boxShadow:
-                    "0 4px 24px rgba(245,158,11,0.55), 0 2px 8px rgba(0,0,0,0.35)",
-                  letterSpacing: "0.08em",
+                  boxShadow: "var(--shadow-sm)",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  textTransform: "uppercase",
                   whiteSpace: "nowrap",
                 }}
               >
-                <span style={{ fontSize: 14 }}>⚗</span>
                 Investigate
               </button>
             </div>
@@ -902,9 +915,7 @@ export const EmbeddingAtlas: React.FC = () => {
             <div
               className="absolute inset-0 flex flex-col items-center justify-center"
               style={{
-                background: dm
-                  ? "rgba(13,15,20,0.92)"
-                  : "rgba(240,242,248,0.9)",
+                background: "color-mix(in srgb, var(--graph-background) 92%, transparent)",
                 zIndex: 100,
                 backdropFilter: "blur(4px)",
               }}
@@ -914,8 +925,8 @@ export const EmbeddingAtlas: React.FC = () => {
                   style={{
                     width: 44,
                     height: 44,
-                    border: `3px solid ${dm ? "rgba(245,158,11,0.15)" : "rgba(217,119,6,0.15)"}`,
-                    borderTop: `3px solid ${dm ? "#f59e0b" : "#d97706"}`,
+                    border: "3px solid var(--accent-soft)",
+                    borderTop: "3px solid var(--accent)",
                     borderRadius: "50%",
                     animation: "spin 0.8s linear infinite",
                   }}
@@ -923,10 +934,9 @@ export const EmbeddingAtlas: React.FC = () => {
                 <div className="text-center">
                   <p
                     style={{
-                      fontFamily: "'Crimson Pro', Georgia, serif",
                       fontSize: 18,
                       fontWeight: 500,
-                      color: dm ? "#e2e8f0" : "#374151",
+                      color: "var(--text-primary)",
                       margin: 0,
                     }}
                   >
@@ -934,9 +944,8 @@ export const EmbeddingAtlas: React.FC = () => {
                   </p>
                   <p
                     style={{
-                      fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 11,
-                      color: dm ? "#6b7280" : "#9ca3af",
+                      color: "var(--text-muted)",
                       marginTop: 4,
                     }}
                   >
@@ -953,28 +962,25 @@ export const EmbeddingAtlas: React.FC = () => {
             <div
               className="absolute inset-0 flex items-center justify-center"
               style={{
-                background: dm
-                  ? "rgba(13,15,20,0.96)"
-                  : "rgba(240,242,248,0.95)",
+                background: "color-mix(in srgb, var(--graph-background) 95%, transparent)",
                 zIndex: 100,
               }}
             >
               <div
                 style={{
-                  background: dm ? "#161820" : "white",
-                  border: "1px solid rgba(232,86,74,0.3)",
-                  borderRadius: 12,
+                  background: "var(--surface-raised)",
+                  border: "1px solid var(--danger)",
+                  borderRadius: "var(--radius-lg)",
                   padding: "24px 28px",
                   maxWidth: 440,
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                  boxShadow: "var(--shadow-md)",
                 }}
               >
                 <p
                   style={{
-                    fontFamily: "'Crimson Pro', Georgia, serif",
                     fontSize: 17,
                     fontWeight: 600,
-                    color: dm ? "#e2e8f0" : "#1f2937",
+                    color: "var(--text-primary)",
                     margin: "0 0 8px",
                   }}
                 >
@@ -982,9 +988,8 @@ export const EmbeddingAtlas: React.FC = () => {
                 </p>
                 <p
                   style={{
-                    fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 11,
-                    color: dm ? "#6b7280" : "#6b7280",
+                    color: "var(--danger)",
                     marginBottom: 16,
                     wordBreak: "break-all",
                   }}
@@ -993,7 +998,7 @@ export const EmbeddingAtlas: React.FC = () => {
                 </p>
                 <p
                   style={{
-                    color: dm ? "#6b7280" : "#9ca3af",
+                    color: "var(--text-secondary)",
                     fontSize: 12,
                     marginBottom: 16,
                   }}
@@ -1001,7 +1006,7 @@ export const EmbeddingAtlas: React.FC = () => {
                   Make sure{" "}
                   <code
                     style={{
-                      background: dm ? "#1f2228" : "#f3f4f6",
+                      background: "var(--surface-subtle)",
                       padding: "1px 4px",
                       borderRadius: 3,
                     }}
@@ -1011,7 +1016,7 @@ export const EmbeddingAtlas: React.FC = () => {
                   and{" "}
                   <code
                     style={{
-                      background: dm ? "#1f2228" : "#f3f4f6",
+                      background: "var(--surface-subtle)",
                       padding: "1px 4px",
                       borderRadius: 3,
                     }}
@@ -1021,7 +1026,7 @@ export const EmbeddingAtlas: React.FC = () => {
                   are in your{" "}
                   <code
                     style={{
-                      background: dm ? "#1f2228" : "#f3f4f6",
+                      background: "var(--surface-subtle)",
                       padding: "1px 4px",
                       borderRadius: 3,
                     }}
@@ -1033,14 +1038,13 @@ export const EmbeddingAtlas: React.FC = () => {
                 <button
                   onClick={reload}
                   style={{
-                    background: dm ? "#f59e0b" : "#d97706",
-                    color: "white",
+                    background: "var(--accent)",
+                    color: "var(--accent-foreground)",
                     border: "none",
                     borderRadius: 7,
                     padding: "8px 16px",
                     fontSize: 13,
                     cursor: "pointer",
-                    fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
                   Retry
@@ -1066,10 +1070,62 @@ export const EmbeddingAtlas: React.FC = () => {
             });
 
           return (
-            <div className="absolute z-200 h-full flex w-[50vw] right-0 top-0">
+            <div
+              className="research-overlay absolute z-200 h-full flex right-0 top-0"
+              style={{
+                width: researchPanelWidth,
+                borderLeft: "1px solid var(--border-default)",
+                boxShadow: "var(--shadow-md)",
+              }}
+            >
+              <div
+                className="research-resize-handle"
+                role="separator"
+                aria-label="Resize research dashboard"
+                aria-orientation="vertical"
+                aria-valuemin={420}
+                aria-valuemax={Math.max(420, window.innerWidth - 16)}
+                aria-valuenow={Math.round(researchPanelWidth)}
+                tabIndex={0}
+                title="Drag to resize · Double-click to reset"
+                onPointerDown={handleResearchResizeStart}
+                onPointerMove={handleResearchResizeMove}
+                onDoubleClick={() =>
+                  setResearchPanelWidth(
+                    Math.min(1180, Math.max(420, window.innerWidth - 32)),
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    setResearchPanelWidth((width) =>
+                      Math.min(window.innerWidth - 16, width + 24),
+                    );
+                  } else if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    setResearchPanelWidth((width) => Math.max(420, width - 24));
+                  } else if (event.key === "Home") {
+                    event.preventDefault();
+                    setResearchPanelWidth(420);
+                  } else if (event.key === "End") {
+                    event.preventDefault();
+                    setResearchPanelWidth(Math.max(420, window.innerWidth - 16));
+                  }
+                }}
+              >
+                <span />
+              </div>
               <button
-                className="absolute bottom-0 right-0 z-300 cursor-pointer text-white w-6 h-6 m-4 border-slate-700 bg-slate-900 border rounded-full flex items-center justify-center"
+                className="absolute top-0 right-0 z-300 cursor-pointer w-8 h-8 m-3 border rounded-full flex items-center justify-center"
                 onClick={() => setActiveTab("viz")}
+                aria-label="Close research panel"
+                title="Close research panel"
+                style={{
+                  color: "var(--text-secondary)",
+                  background: "var(--surface-raised)",
+                  borderColor: "var(--border-default)",
+                  boxShadow: "var(--shadow-sm)",
+                }}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
