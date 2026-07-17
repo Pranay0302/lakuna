@@ -3,7 +3,12 @@ from pathlib import Path
 from agentswarm import KeywordRetriever, PaperExpertAgent, SwarmOrchestrator, load_paper
 
 
-PAPER_PATH = Path(__file__).parent.parent / "data" / "cleaned_json" / "bert_cleaned.json"
+PAPER_PATH = (
+    Path(__file__).parent.parent
+    / "data"
+    / "cleaned_json"
+    / "attention_is_all_you_need_cleaned.json"
+)
 
 
 class StubLLM:
@@ -14,20 +19,24 @@ class StubLLM:
 def test_load_paper_extracts_sections():
     paper = load_paper(PAPER_PATH)
 
-    assert paper.paper_id == "bert"
-    assert paper.title.startswith("BERT:")
-    assert len(paper.chunks) > 100
-    assert any(chunk.section == "Pre-training BERT" for chunk in paper.chunks)
+    assert paper.paper_id == "attention_is_all_you_need"
+    assert paper.title == "Attention Is All You Need"
+    assert len(paper.chunks) > 80
+    assert any(chunk.section == "Multi-Head Attention" for chunk in paper.chunks)
 
 
-def test_retriever_finds_masked_language_modeling():
+def test_retriever_finds_attention_mechanism():
     paper = load_paper(PAPER_PATH)
     retriever = KeywordRetriever([paper])
 
-    results = retriever.search("masked language model pre-training", paper_id="bert", top_k=3)
+    results = retriever.search(
+        "scaled dot-product attention mechanism",
+        paper_id="attention_is_all_you_need",
+        top_k=3,
+    )
 
     assert results
-    assert any("mask" in result.chunk.text.lower() for result in results)
+    assert any("attention" in result.chunk.text.lower() for result in results)
 
 
 def test_orchestrator_returns_grounded_synthesis():
@@ -36,9 +45,9 @@ def test_orchestrator_returns_grounded_synthesis():
     agent = PaperExpertAgent(paper, retriever, llm=StubLLM())
     orchestrator = SwarmOrchestrator([agent])
 
-    blackboard = orchestrator.run("What is next sentence prediction?")
+    blackboard = orchestrator.run("What is scaled dot-product attention?")
 
     assert blackboard.claims
     assert blackboard.synthesis is not None
-    assert "bert" in blackboard.synthesis.answer
+    assert "attention_is_all_you_need" in blackboard.synthesis.answer
     assert blackboard.synthesis.citations
