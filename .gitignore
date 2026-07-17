@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+research_problems/*/logs/
+research_problems/*/data/MNIST/
+
+__pycache__/
+*.py[cod]
