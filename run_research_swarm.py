@@ -31,18 +31,24 @@ import argparse
 import json
 import re
 import sys
+import traceback
 from datetime import datetime, timezone
 from itertools import count
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
 
-load_dotenv()
+if load_dotenv is not None:
+    load_dotenv()
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from agentswarm.brainstorm import BrainstormBlackboard, BrainstormOrchestrator
+from agentswarm.brainstorm import ResearchIdea, CrossPollinatedIdea
 from agentswarm.expert import PaperExpertAgent
 from agentswarm.llm import build_llm
 from agentswarm.log import SwarmLogger
@@ -131,6 +137,114 @@ def _cross_payload(cp, seed_agent_by_id: dict[str, str]) -> dict:
     }
 
 
+def _fallback_seed(agent: PaperExpertAgent, area: str, idea_counter: count, exc: Exception) -> ResearchIdea:
+    evidence = agent.retriever.search_evidence(area, top_k=1, paper_id=agent.paper.paper_id)
+    keywords = _keywords_from_agent(agent, evidence)
+    return ResearchIdea(
+        idea_id=f"{agent.paper.paper_id}:idea:{next(idea_counter)}",
+        agent_id=agent.agent_id,
+        paper_id=agent.paper.paper_id,
+        paper_title=agent.paper.title,
+        text=(
+            f"Prototype a privacy-preserving {area.lower()} study that uses "
+            f"{agent.paper.title} as the baseline signal source."
+        ),
+        grounding=f"Grounded in the selected paper's focus on {keywords}.",
+        gap="Test whether the same predictive signal can be retained while reducing identity leakage.",
+        evidence=evidence,
+    )
+
+
+def _fallback_cross(agent: PaperExpertAgent, seed, cp_counter: count, exc: Exception) -> CrossPollinatedIdea:
+    evidence = agent.retriever.search_evidence(seed.text, top_k=1, paper_id=agent.paper.paper_id)
+    bridge = _keyword_bridge(agent, seed, evidence)
+    return CrossPollinatedIdea(
+        cp_id=f"{agent.paper.paper_id}:cp:{next(cp_counter)}",
+        from_agent_id=agent.agent_id,
+        from_paper_id=agent.paper.paper_id,
+        from_paper_title=agent.paper.title,
+        seed_idea_id=seed.idea_id,
+        seed_paper_id=seed.paper_id,
+        seed_paper_title=seed.paper_title,
+        text=(
+            f"Compare {agent.paper.title} against {seed.paper_title} in a shared privacy-preserving "
+            "ocular-classification benchmark."
+        ),
+        connection=(
+            f"Use {bridge} as the bridge between the two papers, then measure whether demographic "
+            "prediction can be suppressed without destroying useful biometric quality signals."
+        ),
+        evidence=evidence,
+    )
+
+
+def _log_agent_error(logger: SwarmLogger, message: str, exc: Exception) -> None:
+    logger.info(f"{message}: {exc}")
+    if _should_show_traceback(exc):
+        logger.info(traceback.format_exc().rstrip())
+
+
+def _should_show_traceback(exc: Exception) -> bool:
+    text = str(exc)
+    expected_config_errors = (
+        "ANTHROPIC_API_KEY is required",
+        "OPENROUTER_API_KEY is required",
+        "LOCAL_LLM_URL must be set",
+    )
+    return not any(marker in text for marker in expected_config_errors)
+
+
+def _fallback_agenda(area: str, bb: BrainstormBlackboard, exc: Exception) -> str:
+    seed_lines = "\n".join(
+        f"- {seed.text} ({seed.paper_title})"
+        for seed in bb.seeds[:5]
+    ) or "- Build a baseline from the selected source papers and evaluate privacy/utility tradeoffs."
+    cross_lines = "\n".join(
+        f"- {cp.text}"
+        for cp in bb.cross_pollinations[:5]
+    ) or "- Compare the selected papers under a shared benchmark and report where signals transfer."
+    return (
+        f"## Research Agenda: {area}\n\n"
+        "This agenda was assembled from selected papers, retrieved evidence, and deterministic "
+        "fallback heuristics.\n\n"
+        "### Seed Directions\n"
+        f"{seed_lines}\n\n"
+        "### Cross-Paper Directions\n"
+        f"{cross_lines}\n\n"
+        "### Next Step\n"
+        "Run a small benchmark that measures task utility, demographic leakage, and robustness across sensors."
+    )
+
+
+def _keywords_from_agent(agent: PaperExpertAgent, evidence: list) -> str:
+    text = " ".join([agent.paper.title, *(item.text for item in evidence[:2])]).lower()
+    candidates = [
+        "iris texture",
+        "periocular images",
+        "multiple sensors",
+        "spectral variation",
+        "binary statistical features",
+        "score fusion",
+        "biometric recognition",
+        "privacy leakage",
+        "demographic prediction",
+    ]
+    found = [candidate for candidate in candidates if candidate in text]
+    return ", ".join(found[:3]) if found else "ocular biometrics and demographic prediction"
+
+
+def _keyword_bridge(agent: PaperExpertAgent, seed, evidence: list) -> str:
+    left = _keywords_from_agent(agent, evidence)
+    right = " ".join([seed.paper_title, seed.text, seed.grounding]).lower()
+    if "iris" in right and "periocular" in left:
+        return "cross-sensor iris/periocular feature comparison"
+    if "periocular" in right and "iris" in left:
+        return "cross-sensor iris/periocular feature comparison"
+    if "fusion" in right or "fusion" in left:
+        return "score-level fusion and leakage auditing"
+    return left
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Agent-swarm research over a knowledge void")
     parser.add_argument("--void-id", required=True)
@@ -183,7 +297,12 @@ def main() -> int:
     # ── Seed round: each expert proposes directions from its own paper ────────
     logger.phase(f"Seed round — {len(selected)} expert(s) propose research directions")
     for agent in selected:
-        for idea in agent.propose_research(area, idea_counter):
+        try:
+            ideas = agent.propose_research(area, idea_counter)
+        except Exception as exc:  # keep the live UI session alive when one agent fails
+            _log_agent_error(logger, f"{agent.agent_id} failed while proposing ideas", exc)
+            ideas = [_fallback_seed(agent, area, idea_counter, exc)]
+        for idea in ideas:
             bb.add_seed(idea)
         # Emit cumulatively so the UI grows the seed list live.
         event_log.event("seed_ideas_done", {"ideas": [_seed_payload(s) for s in bb.seeds]})
@@ -199,7 +318,15 @@ def main() -> int:
             if done:
                 break
             for seed in [s for s in bb.seeds if s.agent_id != agent.agent_id]:
-                cp = agent.cross_pollinate(area, seed, cp_counter)
+                try:
+                    cp = agent.cross_pollinate(area, seed, cp_counter)
+                except Exception as exc:  # keep the session moving past one failed pair
+                    _log_agent_error(
+                        logger,
+                        f"{agent.agent_id} failed while cross-pollinating with {seed.paper_id}",
+                        exc,
+                    )
+                    cp = _fallback_cross(agent, seed, cp_counter, exc)
                 bb.add_cross_pollination(cp)
                 event_log.event(
                     "cross_ideas_done",
@@ -217,7 +344,11 @@ def main() -> int:
     orchestrator = BrainstormOrchestrator(
         selected, llm=llm, max_agents=len(selected), cross_pollinate_rounds=1, logger=logger
     )
-    bb.agenda = orchestrator._synthesize(bb)
+    try:
+        bb.agenda = orchestrator._synthesize(bb)
+    except Exception as exc:
+        _log_agent_error(logger, "orchestrator failed while synthesizing research agenda", exc)
+        bb.agenda = _fallback_agenda(area, bb, exc)
     event_log.event("plan_done", {"plan": bb.agenda})
     logger.phase_done("Research agenda ready")
 

@@ -82,8 +82,9 @@ def _parse_ideas(text: str, agent_id: str, paper_id: str, paper_title: str,
     Extract structured ResearchIdea objects from the LLM's response.
     Falls back to treating the whole response as one idea if parsing fails.
     """
+    source_text = _coerce_text(text)
     ideas: list[ResearchIdea] = []
-    blocks = re.split(r"---IDEA---", text, flags=re.IGNORECASE)
+    blocks = re.split(r"---IDEA---", source_text, flags=re.IGNORECASE)
     for block in blocks:
         block = block.strip()
         if not block or "---END---" not in block.upper():
@@ -110,7 +111,9 @@ def _parse_ideas(text: str, agent_id: str, paper_id: str, paper_title: str,
 
     if not ideas:
         # graceful fallback — treat whole response as one idea
-        first_sentence = text.split(".")[0].strip() + "."
+        first_sentence = _first_sentence(source_text) or (
+            "Explore a concrete research direction grounded in the selected paper."
+        )
         ideas.append(ResearchIdea(
             idea_id=f"{paper_id}:idea:{next(id_counter)}",
             agent_id=agent_id,
@@ -137,13 +140,16 @@ def _parse_cross_pollination(
     cp_text   = ""
     cp_conn   = ""
 
-    block = text
-    if "---CROSSPOLLINATE---" in text.upper():
-        parts = re.split(r"---CROSSPOLLINATE---", text, flags=re.IGNORECASE)
+    source_text = _coerce_text(text)
+    block = source_text
+    if "---CROSSPOLLINATE---" in source_text.upper():
+        parts = re.split(r"---CROSSPOLLINATE---", source_text, flags=re.IGNORECASE)
         if len(parts) > 1:
             block = re.split(r"---END---", parts[1], flags=re.IGNORECASE)[0].strip()
 
-    cp_text = _field(block, "TEXT") or block.split(".")[0].strip() + "."
+    cp_text = _field(block, "TEXT") or _first_sentence(block) or (
+        "Combine the selected papers into a concrete hybrid research direction."
+    )
     cp_conn = _field(block, "CONNECTION") or "(see full response)"
 
     return CrossPollinatedIdea(
@@ -165,6 +171,20 @@ def _field(text: str, name: str) -> str:
     pattern = re.compile(rf"^{re.escape(name)}:\s*(.+)", re.IGNORECASE | re.MULTILINE)
     match = pattern.search(text)
     return match.group(1).strip() if match else ""
+
+
+def _coerce_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _first_sentence(text: str) -> str:
+    text = " ".join(_coerce_text(text).split())
+    if not text:
+        return ""
+    match = re.search(r"(.+?[.!?])(?:\s|$)", text)
+    if match:
+        return match.group(1).strip()
+    return text[:240].strip()
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
