@@ -72,5 +72,7 @@ def test_sink_create_passes_json_payload():
     r = FakeRunner(stdout='{"id": 9}')
     _client(r).sink_create({"name": "out"}, dry_run=True)
     argv = r.calls[0]
-    assert "create" in argv and "--json" in argv and "--dry-run" in argv
-    assert '{"name": "out"}' in argv
+    json_idx = argv.index("--json")
+    assert argv[json_idx + 1] == '{"name": "out"}'
+    assert "create" in argv
+    assert "--dry-run" in argv

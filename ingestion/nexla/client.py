@@ -31,7 +31,7 @@ class NexlaClient:
     binary: str = "nexla-cli"
     runner: Runner = _subprocess_runner
     which: Callable[[str], str | None] = shutil.which
-    _token: str | None = field(default=None, repr=False)
+    _token: str | None = field(default=None, repr=False, init=False)
 
     def _resolve_binary(self) -> str:
         path = self.which(self.binary)
