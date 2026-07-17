@@ -28,10 +28,10 @@ import { MetricGraph } from "./MetricGraph";
 
 const IMAGENET_GAP = "Transformer-Augmented Vision Adaptation Gap";
 
-const mono = "'JetBrains Mono', monospace";
-const serif = "'Crimson Pro', Georgia, serif";
-const DIM = "rgba(255,255,255,0.06)";
-const BORDER = "rgba(255,255,255,0.08)";
+const mono = "inherit";
+const serif = "inherit";
+const DIM = "var(--border-subtle)";
+const BORDER = "var(--border-default)";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,21 +74,28 @@ const PaperBox: React.FC<PaperBoxProps> = ({
   const rank = index + 1;
   const color =
     codegenStatus === "done"
-      ? "#4ade80"
+      ? "var(--success)"
       : codegenStatus === "running"
-        ? "#22d3ee"
+        ? "var(--info)"
         : codegenStatus === "error"
-          ? "#f87171"
-          : "#f59e0b";
+          ? "var(--danger)"
+          : "var(--accent)";
+  const statusSoft =
+    codegenStatus === "done"
+      ? "var(--success-soft)"
+      : codegenStatus === "error"
+        ? "var(--danger-soft)"
+        : "var(--accent-soft)";
 
   return (
     <div
       style={{
-        flex: "0 0 calc(12.5% - 10px)",
-        minWidth: 110,
-        background: "rgba(22,24,32,0.85)",
+        flex: "1 1 9rem",
+        minWidth: 130,
+        maxWidth: 230,
+        background: "var(--surface-raised)",
         border: `1px solid ${BORDER}`,
-        borderRadius: 8,
+        borderRadius: "var(--radius-md)",
         padding: "8px 10px",
         display: "flex",
         flexDirection: "column",
@@ -109,7 +116,7 @@ const PaperBox: React.FC<PaperBoxProps> = ({
             opacity={0.85}
           />
         </svg>
-        <span style={{ fontFamily: mono, fontSize: 8, color: "#6b7280" }}>
+        <span style={{ fontFamily: mono, fontSize: 9, color: "var(--text-muted)" }}>
           #{rank}
         </span>
         {paper.year && (
@@ -117,7 +124,7 @@ const PaperBox: React.FC<PaperBoxProps> = ({
             style={{
               fontFamily: mono,
               fontSize: 8,
-              color: "#4b5563",
+              color: "var(--text-muted)",
               marginLeft: "auto",
             }}
           >
@@ -131,7 +138,7 @@ const PaperBox: React.FC<PaperBoxProps> = ({
         style={{
           fontFamily: serif,
           fontSize: 11,
-          color: "#c9d1e0",
+          color: "var(--text-primary)",
           lineHeight: 1.4,
           margin: 0,
           flex: 1,
@@ -149,7 +156,7 @@ const PaperBox: React.FC<PaperBoxProps> = ({
           style={{
             fontFamily: mono,
             fontSize: 8,
-            color: "#f59e0b",
+            color: "var(--accent)",
             textDecoration: "none",
           }}
         >
@@ -162,22 +169,15 @@ const PaperBox: React.FC<PaperBoxProps> = ({
         onClick={() => onGenerate(paper)}
         disabled={codegenStatus === "running"}
         style={{
-          background:
-            codegenStatus === "done"
-              ? "rgba(74,222,128,0.12)"
-              : codegenStatus === "error"
-                ? "rgba(248,113,113,0.12)"
-                : "rgba(245,158,11,0.15)",
-          border: `1px solid ${color}40`,
-          borderRadius: 5,
+          background: statusSoft,
+          border: `1px solid ${color}`,
+          borderRadius: "var(--radius-sm)",
           color,
           fontFamily: mono,
           fontSize: 9,
           fontWeight: 700,
           padding: "4px 0",
           cursor: codegenStatus === "running" ? "wait" : "pointer",
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
           width: "100%",
           animation:
             codegenStatus === "running"
@@ -188,9 +188,9 @@ const PaperBox: React.FC<PaperBoxProps> = ({
         {codegenStatus === "running"
           ? "Generating…"
           : codegenStatus === "done"
-            ? "✓ Generated"
+            ? "Generated"
             : codegenStatus === "error"
-              ? "✗ Retry"
+              ? "Retry"
               : "Generate Code"}
       </button>
     </div>
@@ -209,23 +209,23 @@ const OrchestratorPanel: React.FC<{
 }> = ({ phase, plan, diagnosis, judgeDecision, judgeReason, iteration }) => (
   <div
     style={{
-      width: 220,
-      flexShrink: 0,
+      minWidth: 0,
+      minHeight: 0,
       display: "flex",
       flexDirection: "column",
-      gap: 10,
-      padding: "12px 14px",
+      gap: 14,
+      padding: "16px",
       borderRight: `1px solid ${DIM}`,
       overflowY: "auto",
+      background: "var(--surface)",
     }}
   >
     <div
       style={{
         fontFamily: mono,
         fontSize: 9,
-        color: "#f59e0b",
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
+        color: "var(--accent)",
+        fontWeight: 600,
       }}
     >
       Orchestrator
@@ -233,7 +233,7 @@ const OrchestratorPanel: React.FC<{
 
     {/* Current phase */}
     <Section title="Phase">
-      <div style={{ fontFamily: mono, fontSize: 11, color: "#22d3ee" }}>
+      <div style={{ fontFamily: mono, fontSize: 11, color: "var(--info)" }}>
         {phase || "Waiting…"}
       </div>
       {iteration > 0 && (
@@ -241,7 +241,7 @@ const OrchestratorPanel: React.FC<{
           style={{
             fontFamily: mono,
             fontSize: 9,
-            color: "#4b5563",
+            color: "var(--text-muted)",
             marginTop: 3,
           }}
         >
@@ -257,7 +257,7 @@ const OrchestratorPanel: React.FC<{
           style={{
             fontFamily: mono,
             fontSize: 10,
-            color: "#94a3b8",
+            color: "var(--text-secondary)",
             lineHeight: 1.6,
             margin: 0,
             whiteSpace: "pre-wrap",
@@ -275,7 +275,7 @@ const OrchestratorPanel: React.FC<{
           style={{
             fontFamily: serif,
             fontSize: 12,
-            color: "#c9d1e0",
+            color: "var(--text-primary)",
             lineHeight: 1.6,
             margin: 0,
           }}
@@ -300,16 +300,15 @@ const OrchestratorPanel: React.FC<{
             style={{
               background:
                 judgeDecision === "keep"
-                  ? "rgba(74,222,128,0.15)"
-                  : "rgba(248,113,113,0.15)",
-              border: `1px solid ${judgeDecision === "keep" ? "#4ade8040" : "#f8717140"}`,
-              borderRadius: 4,
+                  ? "var(--success-soft)"
+                  : "var(--danger-soft)",
+              border: `1px solid ${judgeDecision === "keep" ? "var(--success)" : "var(--danger)"}`,
+              borderRadius: "var(--radius-sm)",
               padding: "2px 7px",
               fontFamily: mono,
               fontSize: 10,
               fontWeight: 700,
-              color: judgeDecision === "keep" ? "#4ade80" : "#f87171",
-              textTransform: "uppercase",
+              color: judgeDecision === "keep" ? "var(--success)" : "var(--danger)",
             }}
           >
             {judgeDecision}
@@ -320,7 +319,7 @@ const OrchestratorPanel: React.FC<{
             style={{
               fontFamily: mono,
               fontSize: 10,
-              color: "#6b7280",
+              color: "var(--text-muted)",
               lineHeight: 1.5,
               margin: 0,
             }}
@@ -342,9 +341,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({
       style={{
         fontFamily: mono,
         fontSize: 8,
-        color: "#4b5563",
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
+        color: "var(--text-muted)",
         marginBottom: 5,
       }}
     >
@@ -434,11 +431,11 @@ const AgentOutputCard: React.FC<{
   return (
     <div
       style={{
-        flex: "0 0 190px",
-        background: isActive ? "rgba(245,158,11,0.06)" : "rgba(22,24,32,0.7)",
-        border: `1px solid ${isActive ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
-        borderLeft: `2px solid ${isActive ? "#22d3ee" : "#f59e0b"}`,
-        borderRadius: 7,
+        minWidth: 0,
+        background: isActive ? "var(--accent-soft)" : "var(--surface-raised)",
+        border: `1px solid ${isActive ? "var(--accent)" : "var(--border-subtle)"}`,
+        borderLeft: `2px solid ${isActive ? "var(--info)" : "var(--accent)"}`,
+        borderRadius: "var(--radius-md)",
         padding: "8px 10px",
         display: "flex",
         flexDirection: "column",
@@ -455,7 +452,7 @@ const AgentOutputCard: React.FC<{
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background: "#22d3ee",
+              background: "var(--info)",
               flexShrink: 0,
               animation: "drPulse 1s ease-in-out infinite",
             }}
@@ -465,7 +462,7 @@ const AgentOutputCard: React.FC<{
           style={{
             fontFamily: mono,
             fontSize: 9,
-            color: isActive ? "#fcd34d" : "#d97706",
+            color: isActive ? "var(--accent)" : "var(--text-secondary)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -478,11 +475,11 @@ const AgentOutputCard: React.FC<{
             style={{
               fontFamily: mono,
               fontSize: 8,
-              color: "#374151",
+              color: "var(--text-muted)",
               marginLeft: "auto",
             }}
           >
-            ✓
+            Done
           </span>
         )}
       </div>
@@ -492,9 +489,9 @@ const AgentOutputCard: React.FC<{
         style={{
           flex: 1,
           overflowY: "auto",
-          fontFamily: mono,
+          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
           fontSize: 9,
-          color: "#9ca3af",
+          color: "var(--text-secondary)",
           lineHeight: 1.55,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
@@ -506,7 +503,7 @@ const AgentOutputCard: React.FC<{
           <span
             style={{
               animation: "drBlink 0.8s step-end infinite",
-              color: "#22d3ee",
+              color: "var(--info)",
             }}
           >
             ▎
@@ -520,10 +517,10 @@ const AgentOutputCard: React.FC<{
             {
               fontFamily: serif,
               fontSize: 10,
-              color: "#6b7280",
+              color: "var(--text-muted)",
               lineHeight: 1.4,
               flexShrink: 0,
-              borderTop: "1px solid rgba(255,255,255,0.05)",
+              borderTop: "1px solid var(--border-subtle)",
               paddingTop: 4,
               overflow: "hidden",
               display: "-webkit-box",
@@ -549,6 +546,14 @@ const AgentPanel: React.FC<{
   allLogs: string[];
 }> = ({ activeAgents, seedIdeas, crossIdeas, currentEvents, allLogs }) => {
   const logBoxRef = useRef<HTMLDivElement>(null);
+  const rawLogPanelRef = useRef<HTMLDetailsElement>(null);
+  const [rawLogHeight, setRawLogHeight] = useState(120);
+
+  const resizeRawLog = useCallback((clientY: number) => {
+    const rect = rawLogPanelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setRawLogHeight(Math.min(360, Math.max(80, rect.bottom - clientY)));
+  }, []);
 
   // Auto-scroll log box
   useEffect(() => {
@@ -570,20 +575,21 @@ const AgentPanel: React.FC<{
   return (
     <div
       style={{
-        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        background: "var(--background)",
       }}
     >
       <div
         style={{
           fontFamily: mono,
           fontSize: 9,
-          color: "#6b7280",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          padding: "12px 14px 6px",
+          color: "var(--text-secondary)",
+          fontWeight: 600,
+          padding: "16px 16px 8px",
           flexShrink: 0,
         }}
       >
@@ -593,13 +599,13 @@ const AgentPanel: React.FC<{
       {/* ── Agent output cards ── */}
       <div
         style={{
-          height: 200,
+          height: 190,
           flexShrink: 0,
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
           gap: 8,
           padding: "8px 12px",
-          overflowX: "auto",
-          overflowY: "hidden",
+          overflowY: "auto",
           alignItems: "stretch",
         }}
       >
@@ -608,7 +614,7 @@ const AgentPanel: React.FC<{
             style={{
               fontFamily: mono,
               fontSize: 10,
-              color: "#374151",
+              color: "var(--text-muted)",
               paddingTop: 32,
               textAlign: "center",
               width: "100%",
@@ -642,7 +648,7 @@ const AgentPanel: React.FC<{
       <div
         style={{
           height: 1,
-          background: "rgba(255,255,255,0.05)",
+          background: "var(--border-subtle)",
           flexShrink: 0,
         }}
       />
@@ -663,7 +669,7 @@ const AgentPanel: React.FC<{
           <IdeaCard
             key={`cross-${i}`}
             tag="Cross-pollination"
-            tagColor="#fbbf24"
+            tagColor="var(--accent)"
             from={`${shortId(ci.agent_id)} × ${shortId(ci.seed_agent_id)}`}
             text={ci.text}
             connection={ci.connection}
@@ -673,23 +679,51 @@ const AgentPanel: React.FC<{
           <IdeaCard
             key={`seed-${i}`}
             tag="Seed"
-            tagColor="#22d3ee"
+            tagColor="var(--info)"
             from={shortId(si.agent_id)}
             text={si.text}
           />
         ))}
 
-        {/* Live agent messages parsed from log stream */}
-        {agentMessages.map((msg, i) => (
+        {/* Detailed transcripts stay available without dominating the workspace. */}
+        {agentMessages.length > 0 && (
+          <details
+            style={{
+              flexShrink: 0,
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-md)",
+              background: "var(--surface)",
+              padding: "8px 10px",
+            }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              Detailed agent transcripts ({agentMessages.length})
+            </summary>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              {agentMessages.map((msg, i) => (
           <div
             key={i}
             style={{
               background: msg.isDone
-                ? "rgba(22,24,32,0.7)"
-                : "rgba(245,158,11,0.07)",
-              border: `1px solid ${msg.isDone ? "rgba(255,255,255,0.06)" : "rgba(245,158,11,0.3)"}`,
-              borderLeft: `2px solid ${msg.isDone ? "#f59e0b" : "#22d3ee"}`,
-              borderRadius: 6,
+                ? "var(--surface-raised)"
+                : "var(--accent-soft)",
+              border: `1px solid ${msg.isDone ? "var(--border-subtle)" : "var(--accent)"}`,
+              borderLeft: `2px solid ${msg.isDone ? "var(--accent)" : "var(--info)"}`,
+              borderRadius: "var(--radius-sm)",
               padding: "7px 10px",
               flexShrink: 0,
             }}
@@ -708,7 +742,7 @@ const AgentPanel: React.FC<{
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#22d3ee",
+                    background: "var(--info)",
                     animation: "drPulse 1s ease-in-out infinite",
                     flexShrink: 0,
                   }}
@@ -718,14 +752,12 @@ const AgentPanel: React.FC<{
                 style={{
                   fontFamily: mono,
                   fontSize: 9,
-                  color: msg.isDone ? "#f59e0b" : "#22d3ee",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  color: msg.isDone ? "var(--accent)" : "var(--info)",
                 }}
               >
                 {msg.stage}
               </span>
-              <span style={{ fontFamily: mono, fontSize: 9, color: "#4b5563" }}>
+              <span style={{ fontFamily: mono, fontSize: 9, color: "var(--text-muted)" }}>
                 {msg.agentId}
               </span>
               {msg.isDone && (
@@ -733,11 +765,11 @@ const AgentPanel: React.FC<{
                   style={{
                     fontFamily: mono,
                     fontSize: 8,
-                    color: "#374151",
+                    color: "var(--text-muted)",
                     marginLeft: "auto",
                   }}
                 >
-                  ✓ done
+                  done
                 </span>
               )}
             </div>
@@ -748,7 +780,7 @@ const AgentPanel: React.FC<{
                   style={{
                     fontFamily: mono,
                     fontSize: 8,
-                    color: "#4b5563",
+                    color: "var(--text-muted)",
                     cursor: "pointer",
                     userSelect: "none",
                   }}
@@ -759,7 +791,7 @@ const AgentPanel: React.FC<{
                   style={{
                     fontFamily: mono,
                     fontSize: 9,
-                    color: "#374151",
+                    color: "var(--text-muted)",
                     lineHeight: 1.6,
                     marginTop: 4,
                     whiteSpace: "pre-wrap",
@@ -777,7 +809,7 @@ const AgentPanel: React.FC<{
                 style={{
                   fontFamily: serif,
                   fontSize: 12,
-                  color: "#9ca3af",
+                  color: "var(--text-secondary)",
                   lineHeight: 1.55,
                   margin: 0,
                   whiteSpace: "pre-wrap",
@@ -787,26 +819,76 @@ const AgentPanel: React.FC<{
               </p>
             )}
           </div>
-        ))}
+              ))}
+            </div>
+          </details>
+        )}
       </div>
 
-      {/* ── Raw log box pinned to bottom ── */}
-      <div
+      {/* ── Raw logs ── */}
+      <details
+        ref={rawLogPanelRef}
         style={{
           flexShrink: 0,
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          maxHeight: 90,
+          borderTop: "1px solid var(--border-subtle)",
+          background: "var(--surface)",
+          position: "relative",
         }}
       >
+        <summary
+          style={{
+            cursor: "pointer",
+            padding: "7px 12px",
+            color: "var(--text-muted)",
+            fontSize: 10,
+            userSelect: "none",
+          }}
+        >
+          Raw activity log · {currentEvents.length} entries
+        </summary>
+        <div
+          className="raw-log-resizer"
+          role="separator"
+          aria-label="Resize raw activity log"
+          aria-orientation="horizontal"
+          aria-valuemin={80}
+          aria-valuemax={360}
+          aria-valuenow={Math.round(rawLogHeight)}
+          tabIndex={0}
+          title="Drag to resize the raw activity log"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            resizeRawLog(event.clientY);
+          }}
+          onPointerMove={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              resizeRawLog(event.clientY);
+            }
+          }}
+          onDoubleClick={() => setRawLogHeight(120)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              setRawLogHeight((height) =>
+                Math.min(
+                  360,
+                  Math.max(80, height + (event.key === "ArrowUp" ? 16 : -16)),
+                ),
+              );
+            }
+          }}
+        />
         <div
           ref={logBoxRef}
           style={{
             overflowY: "auto",
-            maxHeight: 90,
+            height: rawLogHeight,
+            maxHeight: rawLogHeight,
             padding: "5px 10px",
-            fontFamily: mono,
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 9,
-            color: "#374151",
+            color: "var(--text-muted)",
             lineHeight: 1.7,
           }}
         >
@@ -815,17 +897,17 @@ const AgentPanel: React.FC<{
               key={i}
               style={{
                 color: l.includes("[ERR]")
-                  ? "#78350f"
+                  ? "var(--danger)"
                   : l.includes("◆")
-                    ? "#f59e0b"
-                    : "#374151",
+                    ? "var(--accent)"
+                    : "var(--text-muted)",
               }}
             >
               {l.replace(/\x1b\[[0-9;]*m/g, "")}
             </div>
           ))}
         </div>
-      </div>
+      </details>
     </div>
   );
 };
@@ -839,10 +921,10 @@ const IdeaCard: React.FC<{
 }> = ({ tag, tagColor, from, text, connection }) => (
   <div
     style={{
-      background: "rgba(22,24,32,0.7)",
-      border: `1px solid rgba(255,255,255,0.07)`,
+      background: "var(--surface-raised)",
+      border: `1px solid var(--border-subtle)`,
       borderLeft: `2px solid ${tagColor}`,
-      borderRadius: 6,
+      borderRadius: "var(--radius-sm)",
       padding: "7px 10px",
       flexShrink: 0,
     }}
@@ -855,16 +937,14 @@ const IdeaCard: React.FC<{
           fontFamily: mono,
           fontSize: 8,
           color: tagColor,
-          background: `${tagColor}18`,
-          borderRadius: 3,
+          background: "var(--surface-subtle)",
+          borderRadius: "var(--radius-sm)",
           padding: "1px 5px",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
         }}
       >
         {tag}
       </span>
-      <span style={{ fontFamily: mono, fontSize: 9, color: "#4b5563" }}>
+      <span style={{ fontFamily: mono, fontSize: 9, color: "var(--text-muted)" }}>
         {from}
       </span>
     </div>
@@ -872,7 +952,7 @@ const IdeaCard: React.FC<{
       style={{
         fontFamily: serif,
         fontSize: 12,
-        color: "#94a3b8",
+        color: "var(--text-secondary)",
         lineHeight: 1.55,
         margin: 0,
       }}
@@ -884,10 +964,10 @@ const IdeaCard: React.FC<{
         style={{
           fontFamily: mono,
           fontSize: 9,
-          color: "#6b7280",
+          color: "var(--text-muted)",
           lineHeight: 1.5,
           margin: "4px 0 0",
-          borderTop: "1px solid rgba(255,255,255,0.05)",
+          borderTop: "1px solid var(--border-subtle)",
           paddingTop: 4,
         }}
       >
@@ -909,11 +989,11 @@ const IdeasPanel: React.FC<{
   return (
     <div
       style={{
-        width: 240,
-        flexShrink: 0,
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
-        borderLeft: `1px solid ${DIM}`,
         overflow: "hidden",
       }}
     >
@@ -921,10 +1001,9 @@ const IdeasPanel: React.FC<{
         style={{
           fontFamily: mono,
           fontSize: 9,
-          color: "#6b7280",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          padding: "12px 14px 6px",
+          color: "var(--text-secondary)",
+          fontWeight: 600,
+          padding: "16px 14px 8px",
         }}
       >
         Ideas &amp; Memory
@@ -945,7 +1024,7 @@ const IdeasPanel: React.FC<{
             style={{
               fontFamily: mono,
               fontSize: 10,
-              color: "#374151",
+              color: "var(--text-muted)",
               padding: 4,
             }}
           >
@@ -957,9 +1036,9 @@ const IdeasPanel: React.FC<{
           <div
             key={i}
             style={{
-              background: "rgba(22,24,32,0.6)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 6,
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
               padding: "7px 9px",
             }}
           >
@@ -967,14 +1046,14 @@ const IdeasPanel: React.FC<{
               style={{
                 fontFamily: mono,
                 fontSize: 8,
-                color: "#4b5563",
+                color: "var(--text-muted)",
                 marginBottom: 4,
                 display: "flex",
                 justifyContent: "space-between",
               }}
             >
               <span
-                style={{ color: "paper_title" in idea ? "#fbbf24" : "#22d3ee" }}
+                style={{ color: "paper_title" in idea ? "var(--accent)" : "var(--info)" }}
               >
                 {"seed_paper_title" in idea ? "cross-pollinate" : "seed"}
               </span>
@@ -984,7 +1063,7 @@ const IdeasPanel: React.FC<{
               style={{
                 fontFamily: serif,
                 fontSize: 11,
-                color: "#9ca3af",
+                color: "var(--text-secondary)",
                 lineHeight: 1.5,
                 margin: 0,
               }}
@@ -996,7 +1075,7 @@ const IdeasPanel: React.FC<{
                 style={{
                   fontFamily: mono,
                   fontSize: 9,
-                  color: "#f59e0b",
+                  color: "var(--accent)",
                   margin: "4px 0 0",
                   lineHeight: 1.4,
                 }}
@@ -1011,9 +1090,9 @@ const IdeasPanel: React.FC<{
         {plan && (
           <div
             style={{
-              background: "rgba(245,158,11,0.07)",
-              border: "1px solid rgba(245,158,11,0.15)",
-              borderRadius: 6,
+              background: "var(--accent-soft)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
               padding: "7px 9px",
             }}
           >
@@ -1021,9 +1100,7 @@ const IdeasPanel: React.FC<{
               style={{
                 fontFamily: mono,
                 fontSize: 8,
-                color: "#f59e0b",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
+                color: "var(--accent)",
                 marginBottom: 5,
               }}
             >
@@ -1033,7 +1110,7 @@ const IdeasPanel: React.FC<{
               style={{
                 fontFamily: mono,
                 fontSize: 10,
-                color: "#94a3b8",
+                color: "var(--text-secondary)",
                 lineHeight: 1.6,
                 margin: 0,
               }}
@@ -1105,6 +1182,9 @@ export const DeepResearchTab: React.FC<Props> = ({
     "ingesting" | "ready" | "researching" | "complete"
   >("ingesting");
   const [launching, setLaunching] = useState(false);
+  const [orchestratorWidth, setOrchestratorWidth] = useState(220);
+  const [ideasWidth, setIdeasWidth] = useState(280);
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   const metricKey =
     voidName === IMAGENET_GAP ? "test_accuracy" : "predicted_accuracy";
@@ -1423,39 +1503,197 @@ export const DeepResearchTab: React.FC<Props> = ({
     onCrossPhaseChange(phase, pairLinks);
   }, [events, seedIdeas, crossIdeas, onCrossPhaseChange]);
 
+  const resizeOrchestrator = useCallback((clientX: number) => {
+    const rect = dashboardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setOrchestratorWidth(Math.min(340, Math.max(170, clientX - rect.left)));
+  }, []);
+
+  const resizeIdeas = useCallback((clientX: number) => {
+    const rect = dashboardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setIdeasWidth(Math.min(400, Math.max(220, rect.right - clientX)));
+  }, []);
+
   return (
     <div
       style={{
-        background: "#0a0c10",
+        background: "var(--background)",
+        color: "var(--text-primary)",
+        height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
         position: "relative",
       }}
-      className="grid grid-rows-[15rem_auto]"
     >
-      {/* ── Top: paper boxes ─────────────────────────────────────────── */}
-      <div
+      {/* ── Workspace header ─────────────────────────────────────────── */}
+      <header
         style={{
+          minHeight: 58,
+          padding: "10px 52px 10px 18px",
           display: "flex",
-          gap: 10,
-          padding: "12px 16px",
+          alignItems: "center",
+          gap: 16,
           borderBottom: `1px solid ${DIM}`,
-          overflowX: "auto",
-          background: "#0d0f14",
+          background: "var(--surface)",
+          flexShrink: 0,
         }}
       >
-        {papers.map((p, i) => (
-          <PaperBox
-            key={p.doi || i}
-            paper={p}
-            index={i}
-            codegenStatus={codegenMap.get(p.doi)?.status ?? "idle"}
-            onGenerate={handleGenerate}
-          />
-        ))}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: "var(--text-primary)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {voidName}
+          </div>
+          <div style={{ marginTop: 2, fontSize: 11, color: "var(--text-muted)" }}>
+            {papers.length} source papers · void {voidId}
+          </div>
+        </div>
+        <div
+          style={{
+            maxWidth: "48%",
+            padding: "5px 9px",
+            borderRadius: "var(--radius-pill)",
+            background: "var(--surface-subtle)",
+            color: "var(--text-secondary)",
+            fontSize: 11,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {currentPhase || (jobStage === "ingesting" ? "Preparing papers" : "Ready")}
+        </div>
+      </header>
+
+      {/* ── Source papers ────────────────────────────────────────────── */}
+      <div
+        style={{
+          padding: "10px 16px 12px",
+          borderBottom: `1px solid ${DIM}`,
+          background: "var(--surface)",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            marginBottom: 8,
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--text-secondary)",
+          }}
+        >
+          Source papers
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            overflowX: "auto",
+            paddingBottom: 4,
+          }}
+        >
+          {papers.map((p, i) => (
+            <PaperBox
+              key={p.doi || i}
+              paper={p}
+              index={i}
+              codegenStatus={codegenMap.get(p.doi)?.status ?? "idle"}
+              onGenerate={handleGenerate}
+            />
+          ))}
+        </div>
       </div>
 
       {/* ── Main 3-column area ────────────────────────────────────────── */}
-      <div style={{ display: "flex", overflow: "hidden" }}>
+      <div
+        ref={dashboardRef}
+        className="research-dashboard-grid"
+        style={
+          {
+            flex: 1,
+            "--orchestrator-width": `${orchestratorWidth}px`,
+            "--ideas-width": `${ideasWidth}px`,
+          } as React.CSSProperties
+        }
+      >
+        <div
+          className="dashboard-column-resizer"
+          role="separator"
+          aria-label="Resize orchestrator panel"
+          aria-orientation="vertical"
+          aria-valuemin={170}
+          aria-valuemax={340}
+          aria-valuenow={Math.round(orchestratorWidth)}
+          tabIndex={0}
+          title="Drag to resize the orchestrator panel"
+          style={{ left: orchestratorWidth }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            resizeOrchestrator(event.clientX);
+          }}
+          onPointerMove={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              resizeOrchestrator(event.clientX);
+            }
+          }}
+          onDoubleClick={() => setOrchestratorWidth(220)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              event.preventDefault();
+              setOrchestratorWidth((width) =>
+                Math.min(
+                  340,
+                  Math.max(170, width + (event.key === "ArrowRight" ? 16 : -16)),
+                ),
+              );
+            }
+          }}
+        />
+        <div
+          className="dashboard-column-resizer"
+          role="separator"
+          aria-label="Resize ideas and memory panel"
+          aria-orientation="vertical"
+          aria-valuemin={220}
+          aria-valuemax={400}
+          aria-valuenow={Math.round(ideasWidth)}
+          tabIndex={0}
+          title="Drag to resize the ideas and memory panel"
+          style={{ left: `calc(100% - ${ideasWidth}px)` }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            resizeIdeas(event.clientX);
+          }}
+          onPointerMove={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              resizeIdeas(event.clientX);
+            }
+          }}
+          onDoubleClick={() => setIdeasWidth(280)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              event.preventDefault();
+              setIdeasWidth((width) =>
+                Math.min(
+                  400,
+                  Math.max(220, width + (event.key === "ArrowLeft" ? 16 : -16)),
+                ),
+              );
+            }
+          }}
+        />
         {/* Left: orchestrator */}
         <OrchestratorPanel
           phase={currentPhase}
@@ -1475,44 +1713,62 @@ export const DeepResearchTab: React.FC<Props> = ({
           allLogs={recentLogs}
         />
 
-        {/* Right: ideas */}
-        <IdeasPanel
-          seedIdeas={seedIdeas}
-          crossIdeas={crossIdeas}
-          plan={currentPlan}
-        />
+        {/* Right: ideas and metrics */}
+        <aside className="research-dashboard-aside">
+          <IdeasPanel
+            seedIdeas={seedIdeas}
+            crossIdeas={crossIdeas}
+            plan={currentPlan}
+          />
+          <div
+            style={{
+              flexShrink: 0,
+              padding: "12px",
+              borderTop: "1px solid var(--border-subtle)",
+              background: "var(--surface)",
+              overflowX: "auto",
+            }}
+          >
+            <MetricGraph
+              points={metricPoints}
+              width={220}
+              height={100}
+              metricKey={metricKey}
+            />
+          </div>
+        </aside>
       </div>
 
-      {/* ── Bottom-centre: Research button ───────────────────────────── */}
+      {/* ── Persistent workflow status ───────────────────────────────── */}
       <div
         style={{
-          position: "absolute",
-          bottom: 20,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 20,
+          minHeight: 58,
+          flexShrink: 0,
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
           gap: 12,
+          padding: "10px 16px",
+          borderTop: "1px solid var(--border-subtle)",
+          background: "var(--surface)",
         }}
       >
         {jobStage === "ingesting" && (
           <div
             style={{
-              background: "rgba(13,15,20,0.85)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 10,
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)",
               padding: "9px 22px",
               fontFamily: mono,
               fontSize: 12,
-              color: "#22d3ee",
+              color: "var(--info)",
               display: "flex",
               alignItems: "center",
               gap: 8,
               animation: "drPulse 1.5s ease-in-out infinite",
             }}
           >
-            <span style={{ fontSize: 14 }}>⏳</span>
             Downloading &amp; ingesting papers…
           </div>
         )}
@@ -1522,32 +1778,20 @@ export const DeepResearchTab: React.FC<Props> = ({
             onClick={handleStartResearch}
             disabled={launching}
             style={{
-              background: "linear-gradient(135deg, #d97706 0%, #b45309 100%)",
-              color: "white",
+              background: "var(--accent)",
+              color: "var(--accent-foreground)",
               border: "none",
-              borderRadius: 12,
+              borderRadius: "var(--radius-md)",
               padding: "12px 40px",
               fontSize: 14,
-              fontFamily: mono,
               fontWeight: 700,
               cursor: launching ? "wait" : "pointer",
-              boxShadow:
-                "0 4px 28px rgba(180,83,9,0.55), 0 2px 8px rgba(0,0,0,0.4)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
+              boxShadow: "var(--shadow-md)",
               display: "flex",
               alignItems: "center",
               gap: 10,
-              transition: "transform 0.12s, box-shadow 0.12s",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = "scale(1)";
             }}
           >
-            <span style={{ fontSize: 18 }}>🔬</span>
             {launching ? "Launching…" : "Research"}
           </button>
         )}
@@ -1555,13 +1799,13 @@ export const DeepResearchTab: React.FC<Props> = ({
         {jobStage === "researching" && (
           <div
             style={{
-              background: "rgba(180,83,9,0.12)",
-              border: "1px solid rgba(180,83,9,0.35)",
-              borderRadius: 10,
+              background: "var(--warning-soft)",
+              border: "1px solid var(--warning)",
+              borderRadius: "var(--radius-md)",
               padding: "9px 22px",
               fontFamily: mono,
               fontSize: 12,
-              color: "#fbbf24",
+              color: "var(--warning)",
               display: "flex",
               alignItems: "center",
               gap: 8,
@@ -1572,7 +1816,7 @@ export const DeepResearchTab: React.FC<Props> = ({
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#fbbf24",
+                background: "var(--warning)",
                 display: "inline-block",
                 animation: "drPulse 1.5s ease-in-out infinite",
               }}
@@ -1584,39 +1828,21 @@ export const DeepResearchTab: React.FC<Props> = ({
         {jobStage === "complete" && (
           <div
             style={{
-              background: "rgba(74,222,128,0.1)",
-              border: "1px solid rgba(74,222,128,0.3)",
-              borderRadius: 10,
+              background: "var(--success-soft)",
+              border: "1px solid var(--success)",
+              borderRadius: "var(--radius-md)",
               padding: "9px 22px",
               fontFamily: mono,
               fontSize: 12,
-              color: "#4ade80",
+              color: "var(--success)",
               display: "flex",
               alignItems: "center",
               gap: 8,
             }}
           >
-            <span>✓</span>
             Research complete
           </div>
         )}
-      </div>
-
-      {/* ── Bottom-right: metric graph ────────────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 16,
-          right: 16,
-          zIndex: 10,
-        }}
-      >
-        <MetricGraph
-          points={metricPoints}
-          width={240}
-          height={120}
-          metricKey={metricKey}
-        />
       </div>
 
       <style>{`

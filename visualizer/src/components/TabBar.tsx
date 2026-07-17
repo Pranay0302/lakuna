@@ -16,9 +16,9 @@ interface TabBarProps {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  running: '#22d3ee',
-  done:    '#4ade80',
-  error:   '#f87171',
+  running: 'var(--info)',
+  done:    'var(--success)',
+  error:   'var(--danger)',
 };
 
 export const TabBar: React.FC<TabBarProps> = ({
@@ -26,16 +26,17 @@ export const TabBar: React.FC<TabBarProps> = ({
   activeTabId,
   onTabChange,
   onTabClose,
-  darkMode: dm,
 }) => (
   <div
+    role="tablist"
+    aria-label="Open views"
     style={{
       display:         'flex',
       alignItems:      'stretch',
       height:          38,
       flexShrink:      0,
-      background:      dm ? '#0a0c10' : '#e8ecf5',
-      borderBottom:    `1px solid ${dm ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'}`,
+      background:      'var(--surface-subtle)',
+      borderBottom:    '1px solid var(--border-default)',
       overflowX:       'auto',
       overflowY:       'hidden',
       zIndex:          1000,
@@ -49,68 +50,78 @@ export const TabBar: React.FC<TabBarProps> = ({
       return (
         <div
           key={tab.id}
-          onClick={() => onTabChange(tab.id)}
           style={{
             display:       'flex',
             alignItems:    'center',
-            gap:           6,
-            padding:       '0 14px 0 12px',
-            cursor:        'pointer',
             flexShrink:    0,
             maxWidth:      240,
             minWidth:      100,
             background:    active
-              ? (dm ? '#161820' : '#ffffff')
+              ? 'var(--surface-raised)'
               : 'transparent',
-            borderRight:   `1px solid ${dm ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.09)'}`,
+            borderRight:   '1px solid var(--border-subtle)',
             borderBottom:  active
-              ? `2px solid ${dm ? '#6366f1' : '#4F6EF7'}`
+              ? '2px solid var(--accent)'
               : '2px solid transparent',
-            transition:    'background 0.12s',
+            transition:    'background var(--duration-fast) var(--ease-standard)',
           }}
         >
-          {dotColor && (
-            <div
-              style={{
-                width:        6,
-                height:       6,
-                borderRadius: '50%',
-                background:   dotColor,
-                flexShrink:   0,
-                boxShadow:    `0 0 6px ${dotColor}`,
-                animation:    tab.status === 'running' ? 'tbPulse 1.5s ease-in-out infinite' : undefined,
-              }}
-            />
-          )}
-
-          <span
+          <button
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-label={`Open ${tab.label}`}
+            onClick={() => onTabChange(tab.id)}
             style={{
-              fontFamily:    "'JetBrains Mono', monospace",
+              alignSelf:     'stretch',
+              display:       'flex',
+              alignItems:    'center',
+              gap:           6,
+              padding:       tab.closeable ? '0 4px 0 12px' : '0 14px 0 12px',
+              minWidth:      0,
+              flex:          1,
+              background:    'transparent',
+              border:        'none',
+              cursor:        'pointer',
               fontSize:      11,
               color:         active
-                ? (dm ? '#e2e8f0' : '#1e293b')
-                : (dm ? '#6b7280' : '#9ca3af'),
-              whiteSpace:    'nowrap',
-              overflow:      'hidden',
-              textOverflow:  'ellipsis',
-              flex:          1,
+                ? 'var(--text-primary)'
+                : 'var(--text-muted)',
             }}
           >
-            {tab.label}
-          </span>
+            {dotColor && (
+              <span
+                aria-label={tab.status}
+                style={{
+                  width:        6,
+                  height:       6,
+                  borderRadius: '50%',
+                  background:   dotColor,
+                  flexShrink:   0,
+                  animation:    tab.status === 'running' ? 'tbPulse 1.5s ease-in-out infinite' : undefined,
+                }}
+              />
+            )}
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {tab.label}
+            </span>
+          </button>
 
           {tab.closeable && (
             <button
+              type="button"
               onClick={e => { e.stopPropagation(); onTabClose(tab.id); }}
+              aria-label={`Close ${tab.label}`}
               style={{
                 fontSize:   13,
                 lineHeight: 1,
-                color:      dm ? '#4b5563' : '#94a3b8',
+                color:      'var(--text-muted)',
                 background: 'none',
                 border:     'none',
                 cursor:     'pointer',
-                padding:    '0 2px',
+                padding:    '5px 10px 5px 4px',
                 flexShrink: 0,
+                borderRadius: 'var(--radius-sm)',
               }}
               title="Close tab"
             >

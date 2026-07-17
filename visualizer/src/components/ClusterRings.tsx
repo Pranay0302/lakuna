@@ -77,9 +77,8 @@ export const ClusterRings: React.FC<ClusterRingsProps> = ({
     });
   }, [staticData, transform, selectedClusterId, hoveredClusterId]);
 
-  // Dark mode: outline text with a dark halo; light mode: white fill + dark stroke (original)
-  const textFill   = darkMode ? 'rgba(230,235,255,0.95)' : 'white';
-  const haloColor  = darkMode ? 'rgba(0,0,5,0.92)'       : 'rgba(0,0,0,0.85)';
+  const textFill = 'var(--text-primary)';
+  const haloColor = 'var(--graph-background)';
 
   return (
     <svg
@@ -88,25 +87,6 @@ export const ClusterRings: React.FC<ClusterRingsProps> = ({
       height={height}
       style={{ zIndex: 10 }}
     >
-      <defs>
-        {rings.map(({ cluster }) => (
-          <filter
-            key={`glow-${cluster.id}`}
-            id={`glow-${cluster.id}`}
-            x="-20%"
-            y="-20%"
-            width="140%"
-            height="140%"
-          >
-            <feGaussianBlur
-              stdDeviation={cluster.id === selectedClusterId ? '4' : '2'}
-              result="blur"
-            />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        ))}
-      </defs>
-
       {rings.map(({ cluster, path, centroidScreen, isSelected, isHovered, showLabel, activeLines }) => {
         const opacity =
           selectedClusterId !== null && !isSelected
@@ -135,7 +115,16 @@ export const ClusterRings: React.FC<ClusterRingsProps> = ({
           <g
             key={cluster.id}
             className="pointer-events-auto cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label={`Select ${cluster.label ?? `cluster ${cluster.id}`}`}
             onClick={() => onClusterClick(cluster.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClusterClick(cluster.id);
+              }
+            }}
             onMouseEnter={() => onClusterHover(cluster.id)}
             onMouseLeave={() => onClusterHover(null)}
           >
@@ -160,7 +149,7 @@ export const ClusterRings: React.FC<ClusterRingsProps> = ({
                   y={startY + i * lineHeight}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontFamily="'JetBrains Mono', monospace"
+                  fontFamily="'Instrument Sans', 'Inter', sans-serif"
                   fontSize={fontSize}
                   fontWeight={isSelected ? 600 : 500}
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -168,7 +157,7 @@ export const ClusterRings: React.FC<ClusterRingsProps> = ({
                   <tspan
                     fill={textFill}
                     stroke={haloColor}
-                    strokeWidth={isSelected ? 3.5 : 2.5}
+                    strokeWidth={isSelected ? 4 : 3}
                     strokeLinejoin="round"
                     paintOrder="stroke"
                     fillOpacity={1}

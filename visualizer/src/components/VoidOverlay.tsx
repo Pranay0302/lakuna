@@ -109,8 +109,15 @@ function aabbOverlap(
 
 // ── Graph coloring ────────────────────────────────────────────────────────────
 
-const PALETTE_HUES = [55, 42, 68, 35, 78] as const;
-const N_COLORS = PALETTE_HUES.length;
+const VOID_PALETTE = [
+  "var(--node-coral-border)",
+  "var(--node-sage-border)",
+  "var(--node-blue-border)",
+  "var(--node-amber-border)",
+  "var(--node-lilac-border)",
+  "var(--node-stone-border)",
+] as const;
+const N_COLORS = VOID_PALETTE.length;
 
 function assignColors(voids: Void[]): Map<number, number> {
   const boxes = new Map<number, ReturnType<typeof hullNormBounds>>();
@@ -139,20 +146,24 @@ function assignColors(voids: Void[]): Map<number, number> {
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
 
-function makeColor(hue: number, alpha: number): string {
-  return `oklch(0.70 0.17 ${hue} / ${alpha})`;
+function makeColor(color: string, alpha: number): string {
+  return `color-mix(in srgb, ${color} ${Math.round(alpha * 100)}%, transparent)`;
 }
-function makeSolid(hue: number): string {
-  return `oklch(0.88 0.19 ${hue})`;
+function makeSolid(color: string): string {
+  return color;
 }
-function makeGlow(hue: number): string {
-  return `oklch(0.74 0.13 ${hue} / 0.18)`;
+function makeGlow(color: string): string {
+  return `color-mix(in srgb, ${color} 16%, transparent)`;
 }
 
-const LABEL_SHADOW = "rgba(0,0,0,0.45)";
+const LABEL_SHADOW = "var(--graph-background)";
 
-// Pair highlight colors (4 vivid, distinct hues)
-const PAIR_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#a855f7"] as const;
+const PAIR_COLORS = [
+  "var(--node-coral-border)",
+  "var(--node-blue-border)",
+  "var(--node-sage-border)",
+  "var(--node-lilac-border)",
+] as const;
 
 type ActivePairEntry = {
   fromPaper: SelectedPaper;
@@ -276,13 +287,13 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
         const [cx, cy] = normToScreen(v.ncx, v.ncy, transform);
 
         const slot = colorAssignment.get(v.void_id) ?? 0;
-        const hue = PALETTE_HUES[slot];
+        const color = VOID_PALETTE[slot] ?? VOID_PALETTE[0];
 
-        const fillNormal = makeColor(hue, 0.09);
-        const fillSelected = makeColor(hue, 0.2);
-        const strokeSolid = makeSolid(hue);
-        const strokeDim = makeColor(hue, 0.6);
-        const glowColor = makeGlow(hue);
+        const fillNormal = makeColor(color, 0.09);
+        const fillSelected = makeColor(color, 0.2);
+        const strokeSolid = makeSolid(color);
+        const strokeDim = makeColor(color, 0.6);
+        const glowColor = makeGlow(color);
 
         const rawName = v.name ?? `Void ${v.void_rank}`;
         const labelText =
@@ -316,7 +327,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                 cx={px}
                 cy={py}
                 r={isSelected ? 3.5 : 2.5}
-                fill={makeColor(hue, isSelected ? 0.7 : 0.45)}
+                fill={makeColor(color, isSelected ? 0.7 : 0.45)}
                 style={{ pointerEvents: "none" }}
               />
             );
@@ -350,7 +361,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                 height={size * 1.24}
                 fill={diamondColor}
                 opacity={isSelected ? 0.92 : 0.6}
-                stroke="rgba(255,255,255,0.95)"
+                stroke="var(--surface-raised)"
                 strokeWidth={isSelected ? 1.8 : 1.2}
                 strokeLinejoin="round"
                 transform={`rotate(45 ${px} ${py})`}
@@ -364,7 +375,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                   fontFamily="'JetBrains Mono', monospace"
                   fontSize={size * 0.85}
                   fontWeight={700}
-                  fill="rgba(0,0,0,0.55)"
+                  fill="var(--text-inverse)"
                   style={{ pointerEvents: "none", userSelect: "none" }}
                 >
                   {p.rank + 1}
@@ -385,7 +396,16 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
             key={v.void_id}
             className="cursor-pointer"
             style={{ pointerEvents: "all" }}
+            role="button"
+            tabIndex={0}
+            aria-label={`Select ${rawName}`}
             onClick={() => onVoidClick(v.void_id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onVoidClick(v.void_id);
+              }
+            }}
           >
             {/* Hull fill + glow + dashed stroke */}
             {pathD && (
@@ -407,7 +427,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                 <path
                   d={pathD}
                   fill="none"
-                  stroke={isSelected ? strokeSolid : strokeDim}
+                  stroke={isSelected ? "var(--accent)" : strokeDim}
                   strokeWidth={isSelected ? 2 : 1.2}
                   strokeDasharray={isSelected ? "7 4" : "4 5"}
                   strokeLinejoin={strokeJoin}
@@ -430,7 +450,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                     animPhase === "proposals_complete") && (
                     <path
                       d={pathD}
-                      fill="#FFD700"
+                      fill="var(--accent)"
                       stroke="none"
                       style={{
                         pointerEvents: "none",
@@ -444,7 +464,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                 {isAnimated && animPhase === "building" && (
                   <path
                     d={pathD}
-                    fill="#ff990038"
+                    fill="color-mix(in srgb, var(--warning) 22%, transparent)"
                     stroke="none"
                     style={{
                       pointerEvents: "none",
@@ -457,7 +477,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                 {isAnimated && animPhase === "glowing" && (
                   <path
                     d={pathD}
-                    fill="#FFD700"
+                    fill="var(--accent)"
                     stroke="none"
                     style={{
                       pointerEvents: "none",
@@ -530,8 +550,8 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                   b.minY + (b.maxY - b.minY) * 0.58,
                   transform,
                 );
-                const modelColor = "#FFD700";
-                const modelGlow = "rgba(255,215,0,0.3)";
+                const modelColor = "var(--accent)";
+                const modelGlow = "color-mix(in srgb, var(--accent) 30%, transparent)";
                 const dotR = 5;
                 return (
                   <g style={{ pointerEvents: "none" }}>
@@ -550,18 +570,18 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                       cx={mx}
                       cy={my}
                       r={1.8}
-                      fill="rgba(255,255,255,0.9)"
+                      fill="var(--surface-raised)"
                     />
                     <text
                       x={mx + dotR + 6}
                       y={my}
                       textAnchor="start"
                       dominantBaseline="central"
-                      fontFamily="'JetBrains Mono', monospace"
+                      fontFamily="'Instrument Sans', 'Inter', sans-serif"
                       fontSize={11}
                       fontWeight={700}
                       fill={modelColor}
-                      stroke="rgba(0,0,0,0.55)"
+                      stroke="var(--graph-background)"
                       strokeWidth={2.5}
                       strokeLinejoin="round"
                       paintOrder="stroke"
@@ -580,7 +600,7 @@ export const VoidOverlay: React.FC<VoidOverlayProps> = ({
                 y={cy - 14}
                 textAnchor="middle"
                 dominantBaseline="auto"
-                fontFamily="'JetBrains Mono', monospace"
+                fontFamily="'Instrument Sans', 'Inter', sans-serif"
                 fontSize={isSelected ? 12 : 10}
                 fontWeight={isSelected ? 700 : 500}
                 style={{ pointerEvents: "none", userSelect: "none" }}
