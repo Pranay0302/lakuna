@@ -86,7 +86,14 @@ def pull(client: NexlaClient, source_id: str | None = None, *,
 
 
 def _records_from_cleaned(path: Path) -> list[Any]:
-    data = json.loads(Path(path).read_text())
+    path = Path(path)
+    if path.suffix == ".jsonl":
+        records = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                records.append(json.loads(line))
+        return records
+    data = json.loads(path.read_text())
     return [data] if isinstance(data, dict) else list(data)
 
 

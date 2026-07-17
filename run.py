@@ -8,6 +8,7 @@ Subcommands:
   brainstorm  Cross-pollinate ideas across papers for future research directions
   research    Autoresearch-style model improvement loop over a problem folder
   codegen     Generate code repository from a cleaned JSON paper
+  nexla       Pull PDFs from Nexla sources and push cleaned JSON to sinks
 
 Run `python run.py <subcommand> --help` for options.
 """
@@ -21,9 +22,13 @@ import sys
 from pathlib import Path
 
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    load_dotenv = None
 
-load_dotenv()
+if load_dotenv is not None:
+    load_dotenv()
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
@@ -220,6 +225,13 @@ def cmd_codegen(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_nexla(args: argparse.Namespace) -> int:
+    """Delegate to the Nexla ingestion command group."""
+    from ingestion.nexla.cli import main as nexla_main
+
+    return nexla_main(args.nexla_args)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="run.py",
@@ -314,13 +326,24 @@ def main() -> int:
     p_codegen.add_argument("--local", action="store_true",
                            help="Use local vLLM backend instead of OpenRouter/OpenAI")
 
-    args = parser.parse_args()
+    # ── nexla ────────────────────────────────────────────────────────────────
+    p_nexla = sub.add_parser("nexla", help="Nexla source/sink ingestion commands",
+                             add_help=False)
+    p_nexla.add_argument("nexla_args", nargs=argparse.REMAINDER)
+
+    args, unknown = parser.parse_known_args()
+    if unknown:
+        if args.command == "nexla":
+            args.nexla_args.extend(unknown)
+        else:
+            parser.error(f"unrecognized arguments: {' '.join(unknown)}")
     dispatch = {
         "ingest": cmd_ingest,
         "discuss": cmd_discuss,
         "brainstorm": cmd_brainstorm,
         "research": cmd_research,
         "codegen": cmd_codegen,
+        "nexla": cmd_nexla,
     }
     return dispatch[args.command](args)
 

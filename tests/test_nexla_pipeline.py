@@ -68,6 +68,12 @@ def test_records_from_cleaned_wraps_dict(tmp_path):
     assert pipeline._records_from_cleaned(p) == [{"title": "T"}]
 
 
+def test_records_from_cleaned_reads_jsonl_batches(tmp_path):
+    p = tmp_path / "arxiv_atlas_batch.jsonl"
+    p.write_text('{"id": "1"}\n\n{"id": "2"}\n')
+    assert pipeline._records_from_cleaned(p) == [{"id": "1"}, {"id": "2"}]
+
+
 def test_push_activates_sink_and_reports(tmp_path):
     p = tmp_path / "paper_cleaned.json"
     p.write_text(json.dumps({"title": "T"}))

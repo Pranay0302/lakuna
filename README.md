@@ -59,6 +59,8 @@ generalresearch/
 ```bash
 pip install -r requirements.txt
 pip install -e ingestion/        # installs doc2json package
+# Optional, only for Nexla source/sink transport:
+pip install nexla-cli
 ```
 
 ### 2. Set API key(s)
@@ -133,6 +135,33 @@ Converts a PDF to a cleaned JSON file ready for `discuss` or `codegen`.
 |-----|-------------|
 | `pdf` | Path to input PDF |
 | `-o / --output` | Output dir (default: `data/cleaned_json/`) |
+
+### `python run.py nexla <COMMAND>`
+
+Wraps the existing Grobid ingestion pipeline with Nexla transport. Mutating Nexla commands
+default to dry-run; pass `--live` to activate sources/sinks for real.
+
+```bash
+python run.py nexla status --json
+python run.py nexla pull <source_id> -o papers/
+python run.py nexla pull --local-dir ./incoming_pdfs -o papers/
+python run.py nexla push data/cleaned_json/attention_is_all_you_need_cleaned.json <sink_id>
+python run.py nexla ingest <source_id> <sink_id>
+python run.py nexla ingest <sink_id> --local-dir ./incoming_pdfs
+python run.py nexla arxiv-atlas --max-results 500 --batch-size 100 --sink-id <sink_id>
+```
+
+Nexla is the source/sink transport layer only; PDFs are still parsed by the existing
+Grobid + doc2json flow. `--local-dir` is a local-only dry-run/testing fallback; it does
+not upload PDFs into the Nexla dashboard. To make PDFs appear in Nexla, upload them to
+a Nexla File Upload source in the UI, then run `python run.py nexla ingest <source_id>
+<sink_id> --live` with the source and destination IDs from Nexla. Install `nexla-cli`
+separately when you need live Nexla access.
+
+For atlas-scale arXiv ingestion, prefer `nexla arxiv-atlas`. It fetches current arXiv
+metadata, writes compact JSONL batches under `data/nexla/arxiv_atlas/`, and optionally
+pushes those batches to a Nexla destination. This stores paper metadata and PDF URLs in
+Nexla efficiently without bulk-downloading every PDF.
 
 ### `python run.py discuss "<QUESTION>" [--papers FILE ...]`
 
@@ -211,3 +240,7 @@ A four-stage LLM pipeline:
 | `OPENROUTER_API_KEY` | discuss, codegen | OpenRouter API key |
 | `OPENAI_API_KEY` | codegen (OpenAI path) | OpenAI API key |
 | `GROBID_DIR` | ingest | Grobid install path (default: `~/grobid-0.7.3`) |
+| `NEXLA_API_URL` | nexla | Nexla API URL (defaults to the express-code dev endpoint) |
+| `NEXLA_SERVICE_KEY` | nexla | Service key used by `nexla-cli login` |
+| `NEXLA_TOKEN` | nexla | Optional pre-existing Nexla session token |
+| `NEXLA_MONITORING_URL` | nexla | Optional Nexla monitoring endpoint |

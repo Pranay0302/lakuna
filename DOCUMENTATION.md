@@ -60,10 +60,14 @@ Environment variables used by the code:
 
 - `OPENROUTER_API_KEY`: required by `agentswarm` and the OpenRouter-backed `paper2code` scripts.
 - `OPENAI_API_KEY`: mentioned by docs as an alternative, but most current `paper2code` scripts instantiate `OpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.environ["OPENROUTER_API_KEY"])`.
+- `NEXLA_API_URL`: used by Nexla transport; defaults to the express-code dev endpoint.
+- `NEXLA_SERVICE_KEY`: optional Nexla service key for CLI login.
+- `NEXLA_TOKEN`: optional pre-existing Nexla session token.
+- `NEXLA_MONITORING_URL`: optional Nexla monitoring endpoint.
 
 ## Top-Level CLI: `run.py`
 
-`run.py` is the main entry point. It exposes four subcommands: `ingest`, `discuss`, `brainstorm`, and `codegen`.
+`run.py` is the main entry point. It exposes `ingest`, `discuss`, `brainstorm`, `research`, `codegen`, and `nexla`.
 
 ### `python run.py ingest <PDF> [-o OUTPUT_DIR]`
 
@@ -77,6 +81,25 @@ Flow:
 4. The script checks that Grobid is alive at `localhost:8070`.
 5. It runs `ingestion/doc2json/grobid2json/process_pdf.py` to create `data/raw_json/<paper>.json`.
 6. It runs `paper2code/codes/0_pdf_process.py` to remove noisy metadata and write `<paper>_cleaned.json`.
+
+### `python run.py nexla <COMMAND>`
+
+Purpose: Use Nexla as the source/sink transport around the existing Grobid PDF pipeline.
+Nexla does not parse PDFs; it fetches PDFs in and publishes cleaned JSON out.
+
+Commands:
+
+- `status`: reports configured endpoint, credentials presence, and `nexla-cli` availability without raising.
+- `pull <source_id> [-o papers/]`: activates a Nexla source in dry-run mode by default and fetches files when run live.
+- `pull --local-dir <path> [-o papers/]`: copies local PDFs as a no-account stand-in source for dry-run/local testing.
+- `push <cleaned.json> <sink_id>`: publishes cleaned JSON records to a Nexla sink.
+- `ingest <source_id> <sink_id>`: pulls PDFs, runs Grobid per PDF, then pushes each cleaned JSON.
+- `ingest <sink_id> --local-dir <path>`: runs the same flow using local PDFs in dry-run/local testing mode.
+- `arxiv-atlas`: fetches current arXiv metadata, writes JSONL atlas batches, and optionally pushes those batches to a Nexla destination.
+
+Mutating commands default to dry-run; pass `--live` or `--no-dry-run` to execute live Nexla mutations. `--local-dir --live` is rejected because it does not upload raw PDFs into the Nexla dashboard. To make PDFs appear in Nexla, upload them to a Nexla File Upload source in the UI, then run `python run.py nexla ingest <source_id> <sink_id> --live` with IDs copied from Nexla. `nexla-cli` is optional and should be installed separately only when live Nexla transport is needed.
+
+For atlas-scale ingestion, `python run.py nexla arxiv-atlas --max-results 500 --batch-size 100 --sink-id <sink_id> --live` is the efficient path. It stores arXiv paper metadata and PDF URLs in Nexla instead of downloading and uploading every PDF.
 
 ### `python run.py discuss "<QUESTION>" [--papers ...]`
 
@@ -621,6 +644,20 @@ Caveats:
 ## `ingestion/` Architecture
 
 The top-level project uses the PDF path, but the bundled `doc2json` package supports multiple source formats.
+
+### Nexla Transport
+
+`ingestion/nexla/` wraps Nexla source/sink operations around the existing ingestion pipeline:
+
+- `config.py`: resolves Nexla environment variables and validates that a token or service key exists.
+- `errors.py`: maps `nexla-cli` exit codes to typed exceptions with reusable `exit_code` values.
+- `client.py`: the only module that shells out to `nexla-cli`; subprocess and binary lookup are injectable for tests.
+- `pipeline.py`: orchestrates pull, Grobid conversion, and push through injectable download/upload/Grobid seams.
+- `cli.py`: argparse command group used by `python run.py nexla ...`.
+
+The live file-download and record-upload wire formats are intentionally isolated behind small functions so they can be adjusted after validation against a live Nexla instance without changing the surrounding orchestration.
+
+`ingestion/arxiv_atlas.py` exports current arXiv records into JSONL batches for Nexla. It uses the public arXiv Atom API, normalizes each paper into atlas fields (`arxiv_id`, title, summary, authors, categories, abstract URL, PDF URL), and pages requests so large syncs can be chunked.
 
 ### Shell Scripts
 
